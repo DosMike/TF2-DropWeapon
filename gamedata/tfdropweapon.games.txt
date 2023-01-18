@@ -1,0 +1,123 @@
+"Games"
+{
+	"tf"
+	{
+		"Offsets"
+		{
+			"CTFWeaponBase::GetWorldModel()"
+			{
+				"linux" "328"
+				"windows" "322"
+			}
+			"CTFPlayer::GiveNamedItem()"
+			{ //same as TF2Items, but i want to call it manually
+				"windows"	"486"
+				"linux"	"493"
+				"mac"	"493"
+			}
+			"CTFPlayer::m_flSendPickupWeaponMessageTime"
+			{
+				"windows" "9488"
+				"linux" "9472"
+			}
+		}
+		"Signatures"
+		{
+			"CEconItemView::operator=()"
+			{	//copy assignment
+				"library" "server"
+				"linux" "@_ZN13CEconItemViewaSERKS_"
+				"windows" "\x55\x8B\xEC\x51\x53\x8B\x5D\x08\x56\x8B\xF1\xB1\x20\x57\x66\x8B\x43\x04"
+				//LKASM 55 8B EC 51 53 8B 5D 08 56 8B F1 B1 20 57 66 8B 43 04
+			}
+			"CTFDroppedWeapon::Create()"
+			{	// look for "tf_dropped_weapon"
+				"library" "server"
+				"linux" "@_ZN16CTFDroppedWeapon6CreateEP9CTFPlayerRK6VectorRK6QAnglePKcPK13CEconItemView"
+				"windows" "\x55\x8B\xEC\x51\xA1****\x80\xB8\x7A\x09\x00\x00\x00\x74*"
+				//LKASM 55 8B EC 51 A1 74 F4 A0 10 80 B8 7A 09 00 00 00 74 06
+			}
+			"CTFDroppedWeapon::InitDroppedWeapon()"
+			{	// called after Create()
+				"library" "server"
+				"linux" "@_ZN16CTFDroppedWeapon17InitDroppedWeaponEP9CTFPlayerP13CTFWeaponBasebb"
+				"windows" "\x55\x8B\xEC\x83\xEC\x24\x56\x57\x8B\xF9\x8B\x4D\x08\x85\xC9"
+				//LKASM 55 8B EC 83 EC 24 56 57 8B F9 8B 4D 08 85 C9
+			}
+			"CTFPlayer::PickupWeaponFromOther()"
+			{ //good base 
+				"library" "server"
+				"linux" "@_ZN9CTFPlayer21PickupWeaponFromOtherEP16CTFDroppedWeapon"
+				"windows" "\x55\x8B\xEC\x83\xEC\x24\x56\x8B\x75\x08\x57\x8B\xF9\x81\xC6\xB0\x04\x00\x00"
+				//LKASM 55 8B EC 83 EC 24 56 8B 75 08 57 8B F9 81 C6 B0 04 00 00
+			}
+			"CTFDroppedWeapon::InitPickedUpWeapon()"
+			{ //starts with a ThinkSet to "ChargeLevelDegradeThink"
+				"library" "server"
+				"linux" "@_ZN16CTFDroppedWeapon18InitPickedUpWeaponEP9CTFPlayerP13CTFWeaponBase"
+				"windows" "\x55\x8b\xec\x83\xec\x08\xd9\xee\x53\x56\x57\x68****\x51"
+				//LKASM 55 8B EC 83 EC 08 D9 EE 53 56 57 68 78 19 8A 10 51
+			}
+			"CBaseCombatCharacter::SwitchToNextBestWeapon()"
+			{ //last call in CTFPlayer::PickupWeaponFromOther()
+				"library" "server"
+				"linux" "@_ZN20CBaseCombatCharacter22SwitchToNextBestWeaponEP17CBaseCombatWeapon"
+				"windows" "\x55\x8B\xEC\x56\xFF\x75\x08\x8B\xF1\x8B\x0D****\x56\x8B\x01"
+				//LKASM 55 8B EC 56 FF 75 08 8B F1 8B 0D 74 F4 A0 10 56 8B 01
+			}
+			"CTFPlayer::GetLoadoutItem()"
+			{ //unique string "#Item_BlacklistedInMatch"
+				"library" "server"
+				"linux" "@_ZN9CTFPlayer14GetLoadoutItemEiib"
+				"windows" "\x55\x8B\xEC\x51\x53\x56\x8B\xF1\x8B\x0D****\x57\x89\x75\xFC"
+				//LKASM 55 8B EC 51 53 56 8B F1 8B 0D 74 1E A1 10 57 89 75 FC
+			}
+		}
+		"Functions"
+		{
+			"CTFDroppedWeapon::Create()"
+			{
+				"signature" "CTFDroppedWeapon::Create()"
+				"callconv" "cdecl"
+				"return" "cbaseentity"
+				"arguments"
+				{
+					"player"
+					{
+						"type" "cbaseentity"
+					}
+					"origin"
+					{
+						"type" "vectorptr"
+					}
+					"angle"
+					{
+						"type" "vectorptr"
+					}
+					"model"
+					{
+						"type" "charptr"
+					}
+					"item"
+					{
+						"type" "int"
+					}
+				}
+			}
+			"CTFPlayer::PickupWeaponFromOther()"
+			{
+				"signature" "CTFPlayer::PickupWeaponFromOther()"
+				"callconv" "thiscall"
+				"return" "cbaseentity"
+				"this" "entity"
+				"arguments"
+				{
+					"dropped"
+					{
+						"type" "cbaseentity"
+					}
+				}
+			}
+		}
+	}
+}
