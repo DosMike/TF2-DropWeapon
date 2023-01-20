@@ -3,6 +3,8 @@
 #endif
 #define __tf2_dropweapon_included
 
+#include <tf2>
+
 /**
  * Client tries to drop their current weapon. If cancelled during weapon pickup,
  * picking up the other weapon is cancelled.
@@ -92,6 +94,29 @@ native int TF2DW_GiveWeaponByClassname(int client, const char[] classname);
  */
 native int TF2DW_GiveWeaponForLoadoutSlot(int client, int loadoutSlot, bool stockItem=false);
 
+/**
+ * Create a dropped weapon in the world by classname at the specified position.
+ * This will be a base weapon (lowest itemdef by classname for the given playerclass)
+ * 
+ * @param classname - the tf_weapon_* classname
+ * @param class - a player class to resolve ambiguities (e.g. tf_weapon_pistol)
+ * @param position - where to create the weapon
+ * @return weapon entity on success, INVALID_ENT_REFERENCE otherwise.
+ */
+native int TF2DW_CreateDroppedWeaponByClassname(const char[] classname, TFClassType class, const float position[3]);
+
+/**
+ * Create a dropped weapon in the world by classname at the specified position.
+ * This will be the same as a players inventory weapon for the given class and loadout slot.
+ * 
+ * @param client - the player whos inventory to look up
+ * @param class - a player class (Unknown will be resolved to current class)
+ * @param slot - the loadout slot for the player class inventory to query
+ * @param position - where to create the weapon
+ * @return weapon entity on success, INVALID_ENT_REFERENCE otherwise.
+ */
+native int TF2DW_CreateDroppedWeaponFromLoadout(int client, TFClassType class, int slot, const float position[3]);
+
 
 
 public SharedPlugin __pl_tf2dropweapon = {
@@ -110,5 +135,7 @@ public void __pl_tf2dropweapon_SetNTVOptional() {
 	MarkNativeAsOptional("TF2DW_DropWeaponLoadoutSlot");
 	MarkNativeAsOptional("TF2DW_GiveWeaponByClassname");
 	MarkNativeAsOptional("TF2DW_GiveWeaponForLoadoutSlot");
+	MarkNativeAsOptional("TF2DW_CreateDroppedWeaponByClassname");
+	MarkNativeAsOptional("TF2DW_CreateDroppedWeaponFromLoadout");
 }
 #endif

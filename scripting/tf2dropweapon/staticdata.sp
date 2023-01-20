@@ -13,6 +13,7 @@ static StringMap g_DefaultDefIndexByClassname;
 bool IsValidWeaponClassname(const char[] classname) {
 	return g_DefaultDefIndexByClassname.ContainsKey(classname);
 }
+/** @return -1 on error */
 int GetDefaultItemDef(const char[] classname, TFClassType playerclass) {
 	any data[2];
 	if (g_DefaultDefIndexByClassname.GetArray(classname, data, 2) && data[1] != 0) {
@@ -187,6 +188,10 @@ static int g_StockItemDefs[10][6] = {
 };
 
 int GetStockWeaponItemDef(TFClassType class, int slot) {
-	if (!(0<=slot<6)) ThrowError("Slot %i unsupported", slot);
+	if (!(0<=slot<6)) {
+		char name[16];
+		if(!TF2Econ_TranslateLoadoutSlotIndexToName(slot,name,sizeof(name))) name = "???";
+		ThrowError("Slot %i (%s) unsupported", slot, name);
+	}
 	return g_StockItemDefs[class][slot];
 }

@@ -11,9 +11,11 @@ Handle sc_WeaponGetWorldModel;
 Handle sc_GiveNamedItem;
 Handle sc_NextBestWeapon;
 Handle sc_GetLoadoutItem;
+Handle sc_GetBaseItem;
 DynamicDetour dt_DroppedWeaponCreate;
 int off_m_flSendPickupWeaponMessageTime;
 int off_m_itemDefinitionIndexInEconItemView;
+static Address addr_TFInventoryManager;
 Handle sc_WeaponCanSwitchTo;
 DynamicHook dh_WeaponDrop;
 
@@ -101,6 +103,17 @@ void InitHookData() {
 	off_m_flSendPickupWeaponMessageTime = data.GetOffset("CTFPlayer::m_flSendPickupWeaponMessageTime");
 	if (off_m_flSendPickupWeaponMessageTime < 0)
 		SetFailState("Could not read CTFPlayer::m_flSendPickupWeaponMessageTime");
+	
+	StartPrepSDKCall(SDKCall_Raw);
+	PrepSDKCall_SetFromConf(data, SDKConf_Signature, "CTFInventoryManager::GetBaseItemForClass()");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain); //Addr
+	if ((sc_GetBaseItem = EndPrepSDKCall()) == INVALID_HANDLE)
+		SetFailState("Could not hook CTFInventoryManager::GetBaseItemForClass()");
+	
+	// hack since idk the load base offset for server.dll/server_srv.so
+	addr_TFInventoryManager = data.GetMemSig("CTFPlayer::GetLoadoutItem()") + view_as<Address>(data.GetOffset("TFInventoryManager Offset"));
 		
 	delete data;
 	
@@ -167,6 +180,12 @@ Address GetLoadoutItemView(int client, TFClassType class, int slot) {
 	if (class <= TFClass_Unknown || class > TFClass_Engineer) ThrowError("Invalid class type %i", class);
 	if (slot < 0 || slot >= TF2Econ_GetLoadoutSlotCount()) ThrowError("Invalid slot %i", slot);
 	return SDKCall(sc_GetLoadoutItem, client, class, slot, false);
+}
+
+Address GetBaseItemView(TFClassType class, int slot) {
+	if (class <= TFClass_Unknown || class > TFClass_Engineer) ThrowError("Invalid class type %i", class);
+	if (slot < 0 || slot >= TF2Econ_GetLoadoutSlotCount()) ThrowError("Invalid slot %i", slot);
+	return SDKCall(sc_GetBaseItem, addr_TFInventoryManager, class, slot);
 }
 
 public MRESReturn Weapon_Drop_EntityCallback(int pThis, DHookParam hParams) {

@@ -9,6 +9,8 @@ void InitNatives() {
 	CreateNative("TF2DW_DropWeaponLoadoutSlot", Native_DropWeapon);
 	CreateNative("TF2DW_GiveWeaponByClassname", Native_GiveClassname);
 	CreateNative("TF2DW_GiveWeaponForLoadoutSlot", Native_GiveLoadout);
+	CreateNative("TF2DW_CreateDroppedWeaponByClassname", Native_CreateClassname);
+	CreateNative("TF2DW_CreateDroppedWeaponFromLoadout", Native_CreateLoadout);
 }
 
 void InitForwards() {
@@ -56,6 +58,39 @@ public any Native_GiveLoadout(Handle plugin, int numParams) {
 	else
 		return GivePlayerLoadoutItem(client, slot);
 	
+}
+
+public any Native_CreateClassname(Handle plugin, int numParams) {
+	char classname[64];
+	GetNativeString(1, classname, sizeof(classname));
+	TFClassType class = GetNativeCell(2);
+	float pos[3];
+	GetNativeArray(3, pos, sizeof(pos));
+	
+	int itemdef = GetDefaultItemDef(classname, class);
+	if (itemdef < 0) ThrowError("Invalid classname / playerclass combination");
+	int slot = TF2Econ_GetItemLoadoutSlot(itemdef, class);
+	if (slot < 0) ThrowError("Invalid classname / playerclass combination");
+	Address pItem = GetBaseItemView(class, slot);
+	if (pItem == Address_Null) ThrowError("Invalid classname / playerclass combination");
+	float angles[3];
+	return CreateDroppedWeaponEnt("", pItem, pos, angles);
+}
+
+public any Native_CreateLoadout(Handle plugin, int numParams) {
+	int client = GetNativeCell(1);
+	TFClassType class = GetNativeCell(2);
+	int slot = GetNativeCell(3);
+	float pos[3];
+	GetNativeArray(4, pos, sizeof(pos));
+	
+	if (!IsClientInGame(client) || !IsClientAuthorized(client)) ThrowError("Invalid client");
+	if (class < TFClass_Scout || class > TFClass_Engineer) ThrowError("Invalid playerclass");
+	if (slot < 0 || slot >= 7) ThrowError("Invalid loadout slot");
+	Address pItem = GetLoadoutItemView(client, class, slot);
+	if (pItem == Address_Null) ThrowError("Could not load item");
+	float angles[3];
+	return CreateDroppedWeaponEnt("", pItem, pos, angles);
 }
 
 bool Notify_DropWeapon(int client, int weapon) {

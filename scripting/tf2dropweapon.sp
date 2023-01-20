@@ -59,8 +59,10 @@ public void OnPluginStart() {
 	
 	RegConsoleCmd("sm_dropweapon", ConCmd_Drop, "Drop your weapon");
 	RegConsoleCmd("sm_pickupweapon", ConCmd_Pickup, "Look at a weapon first");
-	RegAdminCmd("sm_giveweapon", ConCmd_GiveGun, ADMFLAG_CHEATS, "Usage: (<weapon>|<class> <slot> ['stock']). Gives a player a weapon. Either use a weapon class name, or player class name and slot. For class and slot, gives from the loadout. If stock is specified uses a stock weapon.");
+	RegAdminCmd("sm_giveweapon", ConCmd_GiveGun, ADMFLAG_CHEATS, "Usage: [player] (<weapon>|<class> <slot> ['stock'|<other>]) - Gives players a weapon. Either use a weapon class name, or player class name and slot. For class and slot, gives from the loadout, or stock if specified.");
 	RegAdminCmd("sm_dwgive", ConCmd_GiveGun, ADMFLAG_CHEATS, "Same as sm_giveweapon. Just a shorter alias that should not clash with other give weapon plugins.");
+	RegAdminCmd("sm_spawnweapon", ConCmd_SpawnGun, ADMFLAG_CHEATS, "Usage: (<weapon> <class>|<class> <slot> ['stock'|<player>]) - Creates a dropped weapon in the world based on the class name and player class or player class and loadout slot. For class and slot, gives from the loadout, or stock is specified.");
+	RegAdminCmd("sm_dwspawn", ConCmd_SpawnGun, ADMFLAG_CHEATS, "Same as sm_spawnweapon. Just a shorter alias that should not clash with other give weapon plugins.");
 	
 	AddCommandListener(ConCmd_Dropitem, "dropitem");
 	
@@ -158,6 +160,15 @@ char[] GetFormatTF2ClassType(TFClassType class) {
 	return classnames[view_as<int>(class)];
 }
 
+/** Similar to FindTarget, but wont auto-reply. returns process target errors (<=0) or client index (>0) */
+public int FindSingleTargetSilent(int client, const char[] pattern, int commandFilterFlags) {
+	int targets[2];
+	char tname[4];
+	bool tnisml;
+	int tcount = ProcessTargetString(pattern, client, targets, sizeof(targets), commandFilterFlags|COMMAND_FILTER_NO_MULTI, tname, 0, tnisml);
+	return tcount >= 1 ? targets[0] : tcount;
+}
+
 public Action ConCmd_GiveGun(int client, int args) {
 	if (client == 0 || !IsClientInGame(client)) {
 		ReplyToCommand(client, "[SM] Invalid client state");
@@ -166,7 +177,7 @@ public Action ConCmd_GiveGun(int client, int args) {
 	if (args <= 0) {
 		char cmd[64];
 		GetCmdArg(0, cmd, sizeof(cmd));
-		ReplyToCommand(client, "[SM] Usage: %s [target] <weapon class> OR %s [target] <player class> <slot> ['stock']", cmd, cmd);
+		ReplyToCommand(client, "[SM] Usage: %s [target] <weapon class> OR %s [target] <player class> <slot> ['stock'|<player>]", cmd, cmd);
 		return Plugin_Handled;
 	}
 	int nextarg = 1;
@@ -201,18 +212,39 @@ public Action ConCmd_GiveGun(int client, int args) {
 		GetCmdArg(nextarg, buffer, sizeof(buffer));
 		nextarg += 1;
 		
-		int slot = StringToInt(buffer);
-		if (slot < 1 || slot > TF2Econ_GetLoadoutSlotCount()) {
-			ReplyToCommand(client, "[SM] Invalid slot number \"%s\"", buffer);
+		int slot;
+		if (StringToIntEx(buffer, slot)!=strlen(buffer)) {
+			slot = TF2Econ_TranslateLoadoutSlotNameToIndex(buffer)+1;
+		}
+		if (slot < 1 || slot > 7) { //only want to accept slots up to pda2
+			char allSlots[128];
+			for (int i=0; i<7; i++) {
+				char slotname[24];
+				TF2Econ_TranslateLoadoutSlotIndexToName(i, slotname, sizeof(slotname));
+				Format(allSlots, sizeof(allSlots), "%s, %s", allSlots, slotname);
+			}
+			if (allSlots[0]==0) allSlots = ", positive integer";
+			ReplyToCommand(client, "[SM] Invalid loadout slot \"%s\": %s expected", buffer, allSlots[2]);
 			return Plugin_Handled;
 		}
 		
 		bool use_stock;
+		int invSource=0; //0 is target
 		if (args >= nextarg) {
 			GetCmdArg(nextarg, buffer, sizeof(buffer));
 			if (StrEqual(buffer, "stock")) use_stock = true;
-			else {
-				ReplyToCommand(client, "[SM] Invalid optional argument: \"stock\" expected, \"%s\" given", buffer);
+			else if ((invSource = FindSingleTargetSilent(client, buffer, COMMAND_FILTER_NO_BOTS))<=0) {
+				char reason[64];
+				switch(invSource) {
+					case COMMAND_TARGET_NONE: reason = "did not match a player";
+					case COMMAND_TARGET_NOT_IN_GAME: reason = "is not fully ingame";
+					case COMMAND_TARGET_IMMUNE: reason = "is immune";
+					case COMMAND_TARGET_EMPTY_FILTER: reason = "did not match any plyer";
+					case COMMAND_TARGET_NOT_HUMAN: reason = "is a bot";
+					case COMMAND_TARGET_AMBIGUOUS: reason = "matched multiple players";
+					default: reason = "is breaking the command";
+				}
+				ReplyToCommand(client, "[SM] Invalid optional argument: \"stock\" or player expected, \"%s\" %s", buffer, reason);
 				return Plugin_Handled;
 			}
 		}
@@ -223,7 +255,7 @@ public Action ConCmd_GiveGun(int client, int args) {
 			if (use_stock) {
 				weapon = GivePlayerStockItem(targets[i], slot-1, class);
 			} else {
-				weapon = GivePlayerLoadoutItem(targets[i], slot-1, class);
+				weapon = GivePlayerLoadoutItem(targets[i], slot-1, class, invSource);
 			}
 			if (weapon != INVALID_ENT_REFERENCE) {
 				//give weapon ammo
@@ -273,6 +305,127 @@ public Action ConCmd_GiveGun(int client, int args) {
 		if (tnisml) ReplyToCommand(client, "[SM] You gave %t a %s (%i/%i matched players)", tname, buffer[fmtIdx], given, tcount);
 		else ReplyToCommand(client, "[SM] You gave %s a %s (%i/%i matched players)", tname, buffer[fmtIdx], given, tcount);
 	}
+	return Plugin_Handled;
+}
+
+public Action ConCmd_SpawnGun(int client, int args) {
+	if (client == 0 || !IsClientInGame(client)) {
+		ReplyToCommand(client, "[SM] Invalid client state");
+		return Plugin_Handled;
+	}
+	if (args <= 0) {
+		char cmd[64];
+		GetCmdArg(0, cmd, sizeof(cmd));
+		ReplyToCommand(client, "[SM] Usage: %s <weapon class> <player class> OR %s <player class> <slot> ['stock'|<player>]", cmd, cmd);
+		return Plugin_Handled;
+	}
+	if (args < 2) {
+		ReplyToCommand(client, "[SM] Not enough arguments. <weapon class> <player class> or <player class> <loadout slot> expected");
+		return Plugin_Handled;
+	}
+	char bufferA[64];
+	char bufferB[64];
+	GetCmdArg(1, bufferA, sizeof(bufferA));
+	GetCmdArg(2, bufferB, sizeof(bufferB));
+	TFClassType pClass;
+	int slot = -1;
+	if ((pClass = TF2_GetClass(bufferA)) != TFClass_Unknown) {
+		if (StringToIntEx(bufferB, slot)!=strlen(bufferB)) {
+			slot = TF2Econ_TranslateLoadoutSlotNameToIndex(bufferB)+1;
+		}
+		if (slot < 1 || slot > 7) { //only want to accept slots up to pda2
+			char allSlots[128];
+			for (int i=0; i<7; i++) {
+				char slotname[24];
+				TF2Econ_TranslateLoadoutSlotIndexToName(i, slotname, sizeof(slotname));
+				Format(allSlots, sizeof(allSlots), "%s, %s", allSlots, slotname);
+			}
+			if (allSlots[0]==0) allSlots = ", positive integer";
+			ReplyToCommand(client, "[SM] Invalid loadout slot \"%s\": %s expected", bufferB, allSlots[2]);
+			return Plugin_Handled;
+		}
+	} else {
+		//try to fix up classname
+		if (StrEqual(bufferA,"saxxy")) {
+			// keep
+		} else if (StrContains(bufferA, "weapon_")==0 || StrContains(bufferA, "wearable")==0) {
+			Format(bufferA, sizeof(bufferA), "tf_%s", bufferA);
+		} else if (StrContains(bufferA, "tf_")!=0) { //not starting with tf_
+			if (StrEqual(bufferA, "demoshield") || StrEqual(bufferA, "razorback"))
+				Format(bufferA, sizeof(bufferA), "tf_wearable_%s", bufferA);
+			else
+				Format(bufferA, sizeof(bufferA), "tf_weapon_%s", bufferA);
+		}
+		if (!IsValidWeaponClassname(bufferA)) {
+			GetCmdArg(1, bufferA, sizeof(bufferA));
+			ReplyToCommand(client, "[SM] Invalid argument \"%s\", weapon class expected.", bufferA);
+			return Plugin_Handled;
+		} else if ((pClass = TF2_GetClass(bufferB)) == TFClass_Unknown) {
+			//this is expected to be checked later by users
+			ReplyToCommand(client, "[SM] Invalid argument \"%s\", player class expected", bufferB);
+			return Plugin_Handled;
+		}
+	}
+	Address pItem;
+	char modelPath[PLATFORM_MAX_PATH];
+	if (slot > 0) {
+		bool use_stock;
+		int invSource=0; //0 is target
+		if (args >= 3) {
+			GetCmdArg(3, bufferA, sizeof(bufferA));
+			if (StrEqual(bufferA, "stock")) use_stock = true;
+			else if ((invSource = FindSingleTargetSilent(client, bufferA, COMMAND_FILTER_NO_BOTS))<=0) {
+				char reason[64];
+				switch(invSource) {
+					case COMMAND_TARGET_NONE: reason = "did not match a player";
+					case COMMAND_TARGET_NOT_IN_GAME: reason = "is not fully ingame";
+					case COMMAND_TARGET_IMMUNE: reason = "is immune";
+					case COMMAND_TARGET_EMPTY_FILTER: reason = "did not match any plyer";
+					case COMMAND_TARGET_NOT_HUMAN: reason = "is a bot";
+					case COMMAND_TARGET_AMBIGUOUS: reason = "matched multiple players";
+					default: reason = "is breaking the command";
+				}
+				ReplyToCommand(client, "[SM] Invalid optional argument: \"stock\" or player expected, \"%s\" %s", bufferA, reason);
+				return Plugin_Handled;
+			}
+		} else invSource = client;
+		if (use_stock)
+			pItem = GetBaseItemView(pClass, slot);
+		else
+			pItem = GetLoadoutItemView(invSource, pClass, slot);
+		
+		if (pItem != Address_Null) {
+			int itemDef = LoadFromAddress(pItem+view_as<Address>(off_m_itemDefinitionIndexInEconItemView), NumberType_Int16);
+			TF2Econ_GetItemDefinitionString(itemDef, "model_player", modelPath, sizeof(modelPath));
+		}
+	} else {
+		int itemDef = GetDefaultItemDef(bufferA, pClass);
+		if (itemDef < 0) {
+			ReplyToCommand(client, "[SM] Invalid weapon class / player class combo: Unable to resolve %s for %s", bufferA, bufferB);
+			return Plugin_Handled;
+		}
+		slot = TF2Econ_GetItemLoadoutSlot(itemDef, pClass);
+		if (slot < 0 || slot >= TF2Econ_GetLoadoutSlotCount()) {
+			ReplyToCommand(client, "[SM] Invalid state: Could not defer slot of itemdef %i (%s) for %s", itemDef, bufferA, bufferB);
+			return Plugin_Handled;
+		}
+		TF2Econ_GetItemDefinitionString(itemDef, "model_player", modelPath, sizeof(modelPath));
+		pItem = GetBaseItemView(pClass, slot);
+	}
+	if (pItem == Address_Null) {
+		ReplyToCommand(client, "[SM] Invalid state: Could not load item view");
+		return Plugin_Handled;
+	}
+	
+	float origin[3], angles[3], fwd[3];
+	GetClientEyePosition(client, origin);
+	GetClientEyeAngles(client, angles);
+	angles[0] = angles[2] = 0.0;
+	GetAngleVectors(angles, fwd, NULL_VECTOR, NULL_VECTOR);
+	ScaleVector(fwd, 50.0);
+	AddVectors(origin, fwd, origin);
+	int weapon = CreateDroppedWeaponEnt(modelPath, pItem, origin, angles);
+	
 	return Plugin_Handled;
 }
 
@@ -461,6 +614,20 @@ bool DropWeapon(int client, int weapon, bool switchWeapon=true, bool compatCall=
 	return true;
 }
 
+int CreateDroppedWeaponEnt(const char[] model, Address pItem, const float origin[3], const float angles[3]) {
+	if (model[0] == 0) return INVALID_ENT_REFERENCE; //aint working
+	int droppedWeapon = CreateEntityByName("tf_dropped_weapon");
+	if (droppedWeapon != INVALID_ENT_REFERENCE) {
+		DispatchKeyValueVector(droppedWeapon, "origin", origin);
+		DispatchKeyValueVector(droppedWeapon, "angles", angles);
+		SetEntityModel(droppedWeapon, model);
+		SetEconItemView(droppedWeapon, "CTFDroppedWeapon", pItem);
+		
+		DispatchSpawn(droppedWeapon);
+	}
+	return droppedWeapon;
+}
+
 public MRESReturn DHook_WeaponCreate(DHookReturn hReturn, DHookParam hParams) {
 	if (!cv_SupressWeaponCleanup.BoolValue) return MRES_Ignored;
 	
@@ -476,15 +643,7 @@ public MRESReturn DHook_WeaponCreate(DHookReturn hReturn, DHookParam hParams) {
 	hParams.GetString(4, model, sizeof(model));
 	Address item = hParams.Get(5);
 	
-	int droppedWeapon = CreateEntityByName("tf_dropped_weapon");
-	if (droppedWeapon != INVALID_ENT_REFERENCE) {
-		DispatchKeyValueVector(droppedWeapon, "origin", origin);
-		DispatchKeyValueVector(droppedWeapon, "angles", angles);
-		SetEntityModel(droppedWeapon, model);
-		SetEconItemView(droppedWeapon, "CTFDroppedWeapon", item);
-		
-		DispatchSpawn(droppedWeapon);
-	}
+	int droppedWeapon = CreateDroppedWeaponEnt(model, item, origin, angles);
 	hReturn.Value = droppedWeapon;
 	return MRES_Supercede;
 }
@@ -633,9 +792,17 @@ bool TryPickupWeapon(int client, int weapon) {
 
 // ----- Re-equip single items -----
 
-int GivePlayerLoadoutItem(int client, int slot, TFClassType class=TFClass_Unknown) {
+/**
+ * @param client - client to give item to
+ * @param slot - loadout slot to load
+ * @param class - class to load, or Unknown for clients current class
+ * @param inventoryClient - client to load inventory from, or 0 for target
+ * @return weapon entity on success
+ */
+int GivePlayerLoadoutItem(int client, int slot, TFClassType class=TFClass_Unknown, int inventoryClient=0) {
+	if (!inventoryClient) inventoryClient = client;
 	if (class == TFClass_Unknown) class = TF2_GetPlayerClass(client);
-	Address pItem = GetLoadoutItemView(client, class, slot);
+	Address pItem = GetLoadoutItemView(inventoryClient, class, slot);
 	if (pItem == Address_Null) return INVALID_ENT_REFERENCE;
 	return GiveWeaponFromItemView(client, .econItem=pItem);
 }
