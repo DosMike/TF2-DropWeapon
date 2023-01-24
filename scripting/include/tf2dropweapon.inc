@@ -162,5 +162,7 @@ public void __pl_tf2dropweapon_SetNTVOptional() {
 	MarkNativeAsOptional("TF2DW_GiveWeaponForLoadoutSlot");
 	MarkNativeAsOptional("TF2DW_CreateDroppedWeaponByClassname");
 	MarkNativeAsOptional("TF2DW_CreateDroppedWeaponFromLoadout");
+	MarkNativeAsOptional("TF2DW_GetStockWeaponItemDef");
+	MarkNativeAsOptional("TF2DW_GetWeaponDefaultMaxClipAndAmmo");
 }
 #endif

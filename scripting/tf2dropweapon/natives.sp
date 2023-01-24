@@ -106,11 +106,9 @@ public any Native_DefaultMaxAmmoClip(Handle plugin, int numParams) {
 	TFClassType pClass = GetNativeCell(2);
 	
 	if (!TF2Econ_IsValidItemDefinition(itemDef)) return false;
-	char classname[64];
-	if (!TF2Econ_GetItemClassName(itemDef, classname, sizeof(classname))) return false;
 	
 	int ammo = GetWeaponDefaultMaxAmmoByItemDef(itemDef, pClass);
-	int clip = GetWeaponDefaultMaxClipByClassName(classname);
+	int clip = GetWeaponDefaultMaxClipByClassName(itemDef);
 	
 	SetNativeCellRef(3, clip);
 	SetNativeCellRef(4, ammo);

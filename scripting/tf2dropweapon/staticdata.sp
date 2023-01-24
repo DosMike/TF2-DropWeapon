@@ -222,12 +222,15 @@ int GetWeaponDefaultMaxAmmoByItemDef(int itemDef, TFClassType pClass=TFClass_Unk
 	int maxAmmo = data.GetMaxAmmo(ammoType);
 	delete data;
 	
-	float mult = 1.0;
-	int at = attribs.FindValue(ammoType == 1 ? 37 : 25); // hidden primary/secondary max ammo bonus
-	if (at != -1) mult = attribs.Get(at, 1);
+	float mult = 1.0; int at;
+#define mulFloat(%1,%2) at = attribs.FindValue(ammoType == 1 ? (%1) : (%2)); if (at != -1) mult *= view_as<float>(attribs.Get(at, 1))
+	mulFloat(37,25); // hidden primary/secondary max ammo bonus
+	mulFloat(76,78); // % max increase positive
+	mulFloat(77,79); // % max increase negative
+#undef mulFloat
 	delete attribs;
 	
-	return RoundToCeil(maxAmmo * mult);
+	return RoundToNearest(maxAmmo * mult);
 }
 /**
  * This method is only intended for gettings the weapons proper max ammo count.
@@ -268,17 +271,27 @@ void GenerifyWeaponClassname(char[] classname, int maxlen) {
 	}
 }
 
-/** @param classname - weapon classname. does not need to be generified */
-int GetWeaponDefaultMaxClipByClassName(const char[] classname) {
-	char buffer[64];
-	strcopy(buffer, sizeof(buffer), classname);
-	GenerifyWeaponClassname(buffer, sizeof(buffer));
+int GetWeaponDefaultMaxClipByClassName(int itemDef) {
+	char classname[64];
+	TF2Econ_GetItemClassName(itemDef, classname, sizeof(classname));
+	GenerifyWeaponClassname(classname, sizeof(classname));
 	
 	any data[3];
-	if (g_DataByClassname.GetArray(buffer, data, 3))
-		return data[2];
+	if (!g_DataByClassname.GetArray(classname, data, 3)) return -1;
 	
-	return -1;
+	ArrayList attribs = TF2Econ_GetItemStaticAttributes(itemDef);
+	float clip = float(data[2]); int at;
+#define mulFloat(%1) at = attribs.FindValue(%1); if (at != -1) clip *= view_as<float>(attribs.Get(at, 1))
+#define override(%1) at = attribs.FindValue(%1); if (at != -1) clip = float(view_as<int>(attribs.Get(at, 1)))
+	mulFloat(3); // % penalty
+	mulFloat(4); // % bonus
+	mulFloat(424); // % penalty hidden
+	override(303); // max primary clip override
+#undef mulFloat
+#undef override
+	delete attribs;
+	
+	return RoundToNearest(clip);
 }
 
 int AdjustItemDefForClass(int itemDef, TFClassType playerclass) {

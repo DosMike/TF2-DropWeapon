@@ -258,7 +258,7 @@ public Action ConCmd_GiveGun(int client, int args) {
 				weapon = GivePlayerLoadoutItem(targets[i], slot-1, class, invSource);
 			}
 			if (weapon != INVALID_ENT_REFERENCE) {
-				//give weapon ammo
+				GivePlayerAmmo(targets[i], 9999, GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType"));
 				PrintToChat(targets[i], "[SM] %N gave you %s weapon for %s slot %i", client, use_stock?"the stock":"your", GetFormatTF2ClassType(class), slot);
 				given++;
 			}
@@ -292,8 +292,9 @@ public Action ConCmd_GiveGun(int client, int args) {
 		
 		int given;
 		for (int i=0; i<tcount; i+=1) {
-			bool success = GiveWeaponFromItemView(targets[i], .weaponclass=buffer)!=INVALID_ENT_REFERENCE;
-			if (success) {
+			int weapon = GiveWeaponFromItemView(targets[i], .weaponclass=buffer);
+			if (weapon != INVALID_ENT_REFERENCE) {
+				GivePlayerAmmo(targets[i], 9999, GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType"));
 				PrintToChat(targets[i], "[SM] %N gave you the stock %s", client, buffer[fmtIdx]);
 				given++;
 			}
@@ -337,7 +338,7 @@ public Action ConCmd_SpawnGun(int client, int args) {
 			ReplyToCommand(client, "[SM] Missing next argument: loadout slot expected");
 			return Plugin_Handled;
 		}
-		if (slot < 1 || slot > 7) { //only want to accept slots up to pda2
+		if (slot < 1 || slot > 5) { //only want to accept slots up to pda2
 			char allSlots[128];
 			for (int i=0; i<7; i++) {
 				char slotname[24];
@@ -348,6 +349,7 @@ public Action ConCmd_SpawnGun(int client, int args) {
 			ReplyToCommand(client, "[SM] Invalid loadout slot \"%s\": %s expected", bufferB, allSlots[2]);
 			return Plugin_Handled;
 		}
+		slot -= 1; //from natural to index
 	} else {
 		//try to fix up classname
 		if (StrEqual(bufferA,"saxxy")) {
@@ -376,7 +378,7 @@ public Action ConCmd_SpawnGun(int client, int args) {
 	}
 	Address pItem;
 	char modelPath[PLATFORM_MAX_PATH];
-	if (slot > 0) {
+	if (slot >= 0) {
 		bool use_stock;
 		int invSource=0; //0 is target
 		if (args >= 3) {
@@ -413,7 +415,7 @@ public Action ConCmd_SpawnGun(int client, int args) {
 			return Plugin_Handled;
 		}
 		slot = TF2Econ_GetItemLoadoutSlot(itemDef, pClass);
-		if (slot < 0 || slot >= TF2Econ_GetLoadoutSlotCount()) {
+		if (slot < 0 || slot >= 5) {
 			ReplyToCommand(client, "[SM] Invalid state: Could not defer slot of itemdef %i (%s) for %s", itemDef, bufferA, bufferB);
 			return Plugin_Handled;
 		}
@@ -645,9 +647,9 @@ int CreateDroppedWeaponEnt(const char[] model, Address pItem, const float origin
 		
 		DispatchSpawn(droppedWeapon);
 		
-		char classname[64]; int itemDef;
-		if ((itemDef = GetItemViewItemDef(pItem)) >= 0 && TF2Econ_GetItemClassName(itemDef, classname, sizeof(classname))) {
-			int clip = GetWeaponDefaultMaxClipByClassName(classname);
+		int itemDef;
+		if ((itemDef = GetItemViewItemDef(pItem)) >= 0) {
+			int clip = GetWeaponDefaultMaxClipByClassName(itemDef);
 			SetDroppedWeaponAmmo(droppedWeapon, clip, 9999); //max ammo will fix itself on pickup
 		}
 	}
