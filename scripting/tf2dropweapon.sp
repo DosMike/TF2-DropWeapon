@@ -12,7 +12,7 @@
 #pragma newdecls required
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "23w03a"
+#define PLUGIN_VERSION "23w04a"
 
 public Plugin myinfo = {
 	name = "[TF2] DropWeapon",
@@ -288,7 +288,7 @@ public Action ConCmd_GiveGun(int client, int args) {
 	} else {
 		//skip prefix for readability: tf_wearable -> wearable, tf_weapon_bat -> bat, saxxy -> saxxy
 		int fmtIdx = StrContains(buffer[3],"_");
-		if (fmtIdx>0) fmtIdx+=3; else fmtIdx = (buffer[2]=='_' ? 3 : 0);
+		if (fmtIdx>0) fmtIdx+=4; else fmtIdx = (buffer[2]=='_' ? 3 : 0);
 		
 		int given;
 		for (int i=0; i<tcount; i+=1) {
@@ -319,8 +319,8 @@ public Action ConCmd_SpawnGun(int client, int args) {
 		ReplyToCommand(client, "[SM] Usage: %s <weapon class> <player class> OR %s <player class> <slot> ['stock'|<player>]", cmd, cmd);
 		return Plugin_Handled;
 	}
-	if (args < 2) {
-		ReplyToCommand(client, "[SM] Not enough arguments. <weapon class> <player class> or <player class> <loadout slot> expected");
+	if (args < 1) {
+		ReplyToCommand(client, "[SM] Missing next argument: weapon class or player class expected");
 		return Plugin_Handled;
 	}
 	char bufferA[64];
@@ -332,6 +332,10 @@ public Action ConCmd_SpawnGun(int client, int args) {
 	if ((pClass = TF2_GetClass(bufferA)) != TFClass_Unknown) {
 		if (StringToIntEx(bufferB, slot)!=strlen(bufferB)) {
 			slot = TF2Econ_TranslateLoadoutSlotNameToIndex(bufferB)+1;
+		}
+		if (args < 2) {
+			ReplyToCommand(client, "[SM] Missing next argument: loadout slot expected");
+			return Plugin_Handled;
 		}
 		if (slot < 1 || slot > 7) { //only want to accept slots up to pda2
 			char allSlots[128];
@@ -360,9 +364,13 @@ public Action ConCmd_SpawnGun(int client, int args) {
 			GetCmdArg(1, bufferA, sizeof(bufferA));
 			ReplyToCommand(client, "[SM] Invalid argument \"%s\", weapon class expected.", bufferA);
 			return Plugin_Handled;
-		} else if ((pClass = TF2_GetClass(bufferB)) == TFClass_Unknown) {
-			//this is expected to be checked later by users
-			ReplyToCommand(client, "[SM] Invalid argument \"%s\", player class expected", bufferB);
+		}
+		if (args < 2) {
+			ReplyToCommand(client, "[SM] Missing next argument: player class expected");
+			return Plugin_Handled;
+		}
+		if ((pClass = TF2_GetClass(bufferB)) == TFClass_Unknown) {
+			ReplyToCommand(client, "[SM] Invalid argument: no such class \"%s\"", bufferB);
 			return Plugin_Handled;
 		}
 	}
@@ -395,7 +403,7 @@ public Action ConCmd_SpawnGun(int client, int args) {
 			pItem = GetLoadoutItemView(invSource, pClass, slot);
 		
 		if (pItem != Address_Null) {
-			int itemDef = LoadFromAddress(pItem+view_as<Address>(off_m_itemDefinitionIndexInEconItemView), NumberType_Int16);
+			int itemDef = GetItemViewItemDef(pItem);
 			TF2Econ_GetItemDefinitionString(itemDef, "model_player", modelPath, sizeof(modelPath));
 		}
 	} else {
@@ -424,7 +432,15 @@ public Action ConCmd_SpawnGun(int client, int args) {
 	GetAngleVectors(angles, fwd, NULL_VECTOR, NULL_VECTOR);
 	ScaleVector(fwd, 50.0);
 	AddVectors(origin, fwd, origin);
+	
 	int weapon = CreateDroppedWeaponEnt(modelPath, pItem, origin, angles);
+	
+	if (weapon != INVALID_ENT_REFERENCE) {
+		TF2Econ_GetItemClassName(GetItemViewItemDef(pItem), bufferA, sizeof(bufferA));
+		ReplyToCommand(client, "[SM] You spawned a %s", bufferA);
+	} else {
+		ReplyToCommand(client, "[SM] Could not spawn weapon in world");
+	}
 	
 	return Plugin_Handled;
 }
@@ -503,7 +519,7 @@ int GiveWeaponFromItemView(int client, const char[] weaponclass="", Address econ
 	//get item loadout slot from dropped weapon
 	int dItemId;
 	if (econItem != Address_Null) {
-		dItemId = LoadFromAddress(econItem+view_as<Address>(off_m_itemDefinitionIndexInEconItemView), NumberType_Int16);
+		dItemId = GetItemViewItemDef(econItem);
 	} else {
 		dItemId = GetDefaultItemDef(classname, clClass);
 		if (dItemId < 0) return INVALID_ENT_REFERENCE; //no applicable to current class;
@@ -514,7 +530,9 @@ int GiveWeaponFromItemView(int client, const char[] weaponclass="", Address econ
 	int wSlot;
 	int aWeapon = FindWeaponForLoadoutSlot(client, loSlot, wSlot);
 	//patch run pickup: no space in inventory -> stop
-	if (dontReplace && aWeapon != INVALID_ENT_REFERENCE) return INVALID_ENT_REFERENCE;
+	if (dontReplace && aWeapon != INVALID_ENT_REFERENCE) {
+		return INVALID_ENT_REFERENCE; //don't drop as requested
+	}
 	//translate weapon name for class ( dropped itemclass , class )
 	if (classname[0] == 0) //no classname given, find one
 		if ( !TF2Econ_GetItemClassName(dItemId, classname, sizeof(classname)) ) return INVALID_ENT_REFERENCE;
@@ -541,7 +559,9 @@ int GiveWeaponFromItemView(int client, const char[] weaponclass="", Address econ
 		if (TF2Util_IsPointInRespawnRoom(vec, client, true) && (nWeaponAccountId == 0 || nWeaponAccountId == GetSteamAccountID(client))) {
 			TF2_RemoveWeaponSlot(client, wSlot);
 		} else {
-			DropWeapon(client, aWeapon, false);
+			//we can always just remove fists
+			bool isFists = wSlot == 2/*melee*/ && aWeapon != INVALID_ENT_REFERENCE && GetEntProp(aWeapon, Prop_Send, "m_iItemDefinitionIndex") == 5/*fists*/;
+			if (!DropWeapon(client, aWeapon, false) && isFists) TF2_RemoveWeaponSlot(client, wSlot);
 		}
 	}
 	//give new weapon
@@ -556,7 +576,6 @@ int GiveWeaponFromItemView(int client, const char[] weaponclass="", Address econ
 	}
 	//update m_flSendPickupWeaponMessageTime to .1 in the future
 	SetEntDataFloat(client, off_m_flSendPickupWeaponMessageTime, GetGameTime()+0.1, true);
-	
 	return nWeapon;
 }
 
@@ -564,9 +583,10 @@ int GiveWeaponFromItemView(int client, const char[] weaponclass="", Address econ
 bool IsVectorEmpty(const float vec[3]) { return IsNullVector(vec) || (vec[0] == 0.0 && vec[1] == 0.0 && vec[2] == 0.0); }
 bool DropWeapon(int client, int weapon, bool switchWeapon=true, bool compatCall=false, const float compatTarget[3]=NULL_VECTOR, const float compatVelocity[3]=NULL_VECTOR) {
 	if (!IsPlayerAlive(client) || !IsValidEdict(weapon)) return false;
-	char clz[12];
+	char clz[64];
 	GetEntityClassname(weapon, clz, sizeof(clz));
 	if (StrContains(clz, "tf_weapon_")!=0) return false; //not an equipped weapon
+	if (StrEqual(clz, "tf_weapon_builder")) return false; //dropping this breaks things
 	
 	if (!Notify_DropWeapon(client, weapon)) return false;
 	
@@ -624,6 +644,12 @@ int CreateDroppedWeaponEnt(const char[] model, Address pItem, const float origin
 		SetEconItemView(droppedWeapon, "CTFDroppedWeapon", pItem);
 		
 		DispatchSpawn(droppedWeapon);
+		
+		char classname[64]; int itemDef;
+		if ((itemDef = GetItemViewItemDef(pItem)) >= 0 && TF2Econ_GetItemClassName(itemDef, classname, sizeof(classname))) {
+			int clip = GetWeaponDefaultMaxClipByClassName(classname);
+			SetDroppedWeaponAmmo(droppedWeapon, clip, 9999); //max ammo will fix itself on pickup
+		}
 	}
 	return droppedWeapon;
 }
@@ -720,6 +746,14 @@ int PickupWeaponFromOtherRe(int client, int droppedWeapon, bool runPickup=false)
 	GetEntityClassname(droppedWeapon, classname, sizeof(classname));
 	if (!StrEqual(classname, "tf_dropped_weapon")) return INVALID_ENT_REFERENCE; //not a dropped weapon
 	
+	//hack the item definition index, so stock shotguns can be picked up by any shotgun wielding class, as expected (stoopid vanilla behaviour)
+	int itemDef = GetEntProp(droppedWeapon, Prop_Send, "m_iItemDefinitionIndex");
+	int adjustedDef = AdjustItemDefForClass(itemDef, TF2_GetPlayerClass(client));
+	if (adjustedDef != itemDef) { //stock item && adjustable to target class && was adjusted
+		SetEntProp(droppedWeapon, Prop_Send, "m_iItemDefinitionIndex", adjustedDef);
+		PrintToServer("Changed itemDef from %i to %i", itemDef, adjustedDef);
+	}
+	
 	Address pItem = GetEconItemView(droppedWeapon, "CTFDroppedWeapon");
 	int nWeapon = GiveWeaponFromItemView(client, .econItem=pItem, .dontReplace=runPickup);
 	if (nWeapon != INVALID_ENT_REFERENCE) {
@@ -781,8 +815,12 @@ bool TryPickupWeapon(int client, int weapon) {
 	int slot = TF2Econ_GetItemLoadoutSlot(itemdef, class);
 	int slotWeapon = FindWeaponForLoadoutSlot(client, slot);
 	
-	if (slotWeapon != INVALID_ENT_REFERENCE) return false;
-	bool picked = PickupWeaponFromOtherRe(client, weapon, true) != INVALID_ENT_REFERENCE;
+	// - if we try to pickup into a melee slot while unarmed, we want to force the pickup (hard)
+	// - otherwise we only want to pick up the weapon if the slot is empty (soft)
+	bool softPickup = !( slot == 2/*melee*/ && dep_GraviHands && TF2GH_IsClientUnarmed(client) );
+	
+	if (softPickup && slotWeapon != INVALID_ENT_REFERENCE) return false;
+	bool picked = PickupWeaponFromOtherRe(client, weapon, softPickup) != INVALID_ENT_REFERENCE;
 	if (picked) {
 		RemoveEntity(weapon);
 		EmitSoundToAll("items/gunpickup2.wav", client);

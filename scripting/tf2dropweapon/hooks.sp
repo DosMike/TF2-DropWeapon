@@ -15,6 +15,8 @@ Handle sc_GetBaseItem;
 DynamicDetour dt_DroppedWeaponCreate;
 int off_m_flSendPickupWeaponMessageTime;
 int off_m_itemDefinitionIndexInEconItemView;
+int off_DroppedWeapon_m_nClip;
+int off_DroppedWeapon_m_nAmmo;
 static Address addr_TFInventoryManager;
 Handle sc_WeaponCanSwitchTo;
 DynamicHook dh_WeaponDrop;
@@ -112,8 +114,21 @@ void InitHookData() {
 	if ((sc_GetBaseItem = EndPrepSDKCall()) == INVALID_HANDLE)
 		SetFailState("Could not hook CTFInventoryManager::GetBaseItemForClass()");
 	
-	// hack since idk the load base offset for server.dll/server_srv.so
-	addr_TFInventoryManager = data.GetMemSig("CTFPlayer::GetLoadoutItem()") + view_as<Address>(data.GetOffset("TFInventoryManager Offset"));
+	{ // hack since idk the load base offset for server.dll/server_srv.so
+		int relative = data.GetOffset("TFInventoryManager Offset");
+		Address base = data.GetMemSig("CTFPlayer::GetLoadoutItem()");
+		if (base == Address_Null || relative == -1)
+			SetFailState("Could not load TFInventoryManager offset");
+		addr_TFInventoryManager = base + view_as<Address>(relative);
+	}
+	
+	off_DroppedWeapon_m_nClip = data.GetOffset("CTFDroppedWeapon::m_nClip");
+	if (off_DroppedWeapon_m_nClip < 0)
+		SetFailState("Could not read CTFDroppedWeapon::m_nClip");
+	
+	off_DroppedWeapon_m_nAmmo = data.GetOffset("CTFDroppedWeapon::m_nAmmo");
+	if (off_DroppedWeapon_m_nAmmo < 0)
+		SetFailState("Could not read CTFDroppedWeapon::m_nAmmo");
 		
 	delete data;
 	
@@ -160,9 +175,9 @@ void SetEconItemView(int weapon, const char[] cclass, Address source) {
 void SwitchToPreviousWeaponOr(int client, int currentWeapon, int fallbackWeapon) {
 	int prev = GetEntPropEnt(client, Prop_Send, "m_hLastWeapon");
 	if (prev != INVALID_ENT_REFERENCE) {
-		SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", prev);
+		TF2Util_SetPlayerActiveWeapon(client, prev);
 	} else if (fallbackWeapon != INVALID_ENT_REFERENCE) {
-		SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", fallbackWeapon);
+		TF2Util_SetPlayerActiveWeapon(client, fallbackWeapon);
 	} else if (currentWeapon != INVALID_ENT_REFERENCE)
 		SDKCall(sc_NextBestWeapon, client, currentWeapon);
 }
@@ -186,6 +201,16 @@ Address GetBaseItemView(TFClassType class, int slot) {
 	if (class <= TFClass_Unknown || class > TFClass_Engineer) ThrowError("Invalid class type %i", class);
 	if (slot < 0 || slot >= TF2Econ_GetLoadoutSlotCount()) ThrowError("Invalid slot %i", slot);
 	return SDKCall(sc_GetBaseItem, addr_TFInventoryManager, class, slot);
+}
+
+int GetItemViewItemDef(Address pItem) {
+	if (pItem == Address_Null) return -1;
+	return LoadFromAddress(pItem+view_as<Address>(off_m_itemDefinitionIndexInEconItemView), NumberType_Int16);
+}
+
+void SetDroppedWeaponAmmo(int droppedWeapon, int clip, int ammo) {
+	SetEntData(droppedWeapon, off_DroppedWeapon_m_nClip, clip);
+	SetEntData(droppedWeapon, off_DroppedWeapon_m_nAmmo, ammo);
 }
 
 public MRESReturn Weapon_Drop_EntityCallback(int pThis, DHookParam hParams) {

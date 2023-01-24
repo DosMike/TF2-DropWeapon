@@ -117,6 +117,31 @@ native int TF2DW_CreateDroppedWeaponByClassname(const char[] classname, TFClassT
  */
 native int TF2DW_CreateDroppedWeaponFromLoadout(int client, TFClassType class, int slot, const float position[3]);
 
+/**
+ * For a valid combination of player class and loadout slot, returns the default/stock itemDef
+ *
+ * @param class - playerclass
+ * @param slot - 0 = primary, 1 = secondary, 2 = melee, 3 = build pda /
+ *               disguise kit, 4 = destr pda / invis watch, rest is unsupported
+ * @return itemDef or -1 if slot is empty for class
+ * @throws on class enum violation, slot out of range
+ */
+native int TF2DW_GetStockWeaponItemDef(TFClassType class, int slot);
+
+/**
+ * Get the default clip and ammo size for a weapon. This takes some static attributes into account.
+ * For some items, the player class is required to properly get the max ammo count (any multiclass item).
+ * If you do not specify a specific class, one will be tried to guess. Guessed player class for an
+ * item might result in inaccurate results.
+ *
+ * @param itemDef - item to look up. should be a weapon.
+ * @param playerClass - class to help disambiguate max ammo coutns.
+ * @param maxClip - out, default clip size
+ * @param maxAmmo - out, default max ammo
+ * @return false if itemDef is invalid, true on success
+ * @throws if playerClass can not be resolved for given item
+ */
+native bool TF2DW_GetWeaponDefaultMaxClipAndAmmo(int itemDef, TFClassType playerClass=TFClass_Unknown, int& maxClip=0, int& maxAmmo=0);
 
 
 public SharedPlugin __pl_tf2dropweapon = {

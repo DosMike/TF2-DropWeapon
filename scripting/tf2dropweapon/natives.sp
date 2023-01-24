@@ -11,6 +11,8 @@ void InitNatives() {
 	CreateNative("TF2DW_GiveWeaponForLoadoutSlot", Native_GiveLoadout);
 	CreateNative("TF2DW_CreateDroppedWeaponByClassname", Native_CreateClassname);
 	CreateNative("TF2DW_CreateDroppedWeaponFromLoadout", Native_CreateLoadout);
+	CreateNative("TF2DW_GetStockWeaponItemDef", Native_StockItemDef);
+	CreateNative("TF2DW_GetWeaponDefaultMaxClipAndAmmo", Native_DefaultMaxAmmoClip);
 }
 
 void InitForwards() {
@@ -91,6 +93,28 @@ public any Native_CreateLoadout(Handle plugin, int numParams) {
 	if (pItem == Address_Null) ThrowError("Could not load item");
 	float angles[3];
 	return CreateDroppedWeaponEnt("", pItem, pos, angles);
+}
+
+public any Native_StockItemDef(Handle plugin, int numParams) {
+	TFClassType class = GetNativeCell(1);
+	int slot = GetNativeCell(2);
+	return GetStockWeaponItemDef(class, slot);
+}
+
+public any Native_DefaultMaxAmmoClip(Handle plugin, int numParams) {
+	int itemDef = GetNativeCell(1);
+	TFClassType pClass = GetNativeCell(2);
+	
+	if (!TF2Econ_IsValidItemDefinition(itemDef)) return false;
+	char classname[64];
+	if (!TF2Econ_GetItemClassName(itemDef, classname, sizeof(classname))) return false;
+	
+	int ammo = GetWeaponDefaultMaxAmmoByItemDef(itemDef, pClass);
+	int clip = GetWeaponDefaultMaxClipByClassName(classname);
+	
+	SetNativeCellRef(3, clip);
+	SetNativeCellRef(4, ammo);
+	return true;
 }
 
 bool Notify_DropWeapon(int client, int weapon) {
