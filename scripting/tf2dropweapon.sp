@@ -12,7 +12,7 @@
 #pragma newdecls required
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "23w04a"
+#define PLUGIN_VERSION "23w08a"
 
 public Plugin myinfo = {
 	name = "[TF2] DropWeapon",
@@ -26,6 +26,7 @@ ConVar cv_SupressWeaponCleanup;
 ConVar cv_UseToPickup;
 ConVar cv_IgnorePickupRestrictions;
 ConVar cv_TouchPickup;
+ConVar cv_Enabled;
 
 ArrayList g_EntityAge;
 float g_clDropTimes[MAXPLAYERS+1];
@@ -51,6 +52,7 @@ public void OnPluginStart() {
 	cv_UseToPickup = CreateConVar("sm_tf2dropweapon_usetopickup", "1", "The default key for picking up weapons seems to have issues. Set to 1 to allow +use to pick up weapons.", FCVAR_DONTRECORD, true, 0.0, true, 1.0);
 	cv_IgnorePickupRestrictions = CreateConVar("sm_tf2dropweapon_pickupany", "1", "There are some restriction for picking up weapons. Set to 1 to ignore these. Note: Setting to one uses a reimplementation that might be more prone to gamedata updates, so try 0 if you're running into issues.", FCVAR_DONTRECORD, true, 0.0, true, 1.0);
 	cv_TouchPickup = CreateConVar("sm_tf2dropweapon_touchpickup", "1", "Set to 1 to pick up weapons, that fit into a slot that is currently empty.", FCVAR_DONTRECORD, true, 0.0, true, 1.0);
+	cv_Enabled = CreateConVar("sm_tf2dropweapon_enabled", "1", "Enables sm_dropweapon/sm_pickupweapon, dropitem hook and proximity pickup. Set to 0 if you just got this plugin as library", FCVAR_DONTRECORD, true, 0.0, true, 1.0);
 	
 	ConVar version = CreateConVar("sm_tf2dropweapon_version", PLUGIN_VERSION, "Version", FCVAR_NOTIFY|FCVAR_DONTRECORD);
 	version.SetString(PLUGIN_VERSION);
@@ -111,6 +113,8 @@ public void OnMapStart() {
 
 int g_prevButtons[MAXPLAYERS+1];
 public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon, int &subtype, int &cmdnum, int &tickcount, int &seed, int mouse[2]) {
+	if (!cv_Enabled.BoolValue) return Plugin_Continue;
+	
 	bool inUse = (buttons & IN_USE) && !(g_prevButtons[client] & IN_USE);
 	g_prevButtons[client] = buttons;
 	
@@ -123,6 +127,8 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 
 
 public Action ConCmd_Drop(int client, int args) {
+	if (!cv_Enabled.BoolValue) return Plugin_Continue;
+	
 	if (client == 0 || !IsClientInGame(client)) return Plugin_Handled;
 	
 	int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
@@ -140,11 +146,15 @@ public bool Trace_SelfHitFilter(int entity, int contentsMask, any data) {
 }
 
 public Action ConCmd_Pickup(int client, int args) {
+	if (!cv_Enabled.BoolValue) return Plugin_Continue;
+	
 	TryPickUpCursorEnt(client);
 	return Plugin_Handled;
 }
 
 public Action ConCmd_Dropitem(int client, const char[] command, int args) {
+	if (!cv_Enabled.BoolValue) return Plugin_Continue;
+	
 	int carriedItem = GetEntPropEnt(client, Prop_Send, "m_hItem");
 	if (carriedItem != INVALID_ENT_REFERENCE) return Plugin_Continue;
 	
@@ -560,10 +570,9 @@ int GiveWeaponFromItemView(int client, const char[] weaponclass="", Address econ
 		// dont spam spawn weapons in the spawn room. apparently a crash fix
 		if (TF2Util_IsPointInRespawnRoom(vec, client, true) && (nWeaponAccountId == 0 || nWeaponAccountId == GetSteamAccountID(client))) {
 			TF2_RemoveWeaponSlot(client, wSlot);
-		} else {
-			//we can always just remove fists
-			bool isFists = wSlot == 2/*melee*/ && aWeapon != INVALID_ENT_REFERENCE && GetEntProp(aWeapon, Prop_Send, "m_iItemDefinitionIndex") == 5/*fists*/;
-			if (!DropWeapon(client, aWeapon, false) && isFists) TF2_RemoveWeaponSlot(client, wSlot);
+		} else if (aWeapon != INVALID_ENT_REFERENCE) {
+			//if we can't drop a melee it's probably fists or gunslinger, just remove it
+			if (!DropWeapon(client, aWeapon, false) && wSlot == 2) TF2_RemoveWeaponSlot(client, wSlot);
 		}
 	}
 	//give new weapon
@@ -587,8 +596,13 @@ bool DropWeapon(int client, int weapon, bool switchWeapon=true, bool compatCall=
 	if (!IsPlayerAlive(client) || !IsValidEdict(weapon)) return false;
 	char clz[64];
 	GetEntityClassname(weapon, clz, sizeof(clz));
-	if (StrContains(clz, "tf_weapon_")!=0) return false; //not an equipped weapon
-	if (StrEqual(clz, "tf_weapon_builder")) return false; //dropping this breaks things
+	
+	//not an equipped weapon
+	if (StrContains(clz, "tf_weapon_")!=0) return false;
+	//dropping the engi builder breaks things
+	else if (StrEqual(clz, "tf_weapon_builder") && GetEntProp(weapon, Prop_Send, "m_iObjectType")!=view_as<int>(TFObject_Sapper)) return false;
+	//prevent funny floaty arm with invis watch
+	else if (StrEqual(clz, "tf_weapon_invis")) return false;
 	
 	if (!Notify_DropWeapon(client, weapon)) return false;
 	
@@ -610,7 +624,7 @@ bool DropWeapon(int client, int weapon, bool switchWeapon=true, bool compatCall=
 	
 	char model[PLATFORM_MAX_PATH];
 	SDKCall(sc_WeaponGetWorldModel, weapon, model, sizeof(model));
-	if (model[0]==0) return false;
+	if (model[0]==0) return false; //we could get the CModel from the string table, but that's probably floating arms if we drop em
 	Address item = GetEconItemView(weapon, "CTFWeaponBase");
 	
 	int entity = SDKCall(sc_DroppedWeaponCreate, client, position, angles, model, item);
@@ -766,9 +780,8 @@ int PickupWeaponFromOtherRe(int client, int droppedWeapon, bool runPickup=false)
 }
 
 
-int GetClosestPlayer(const float pos[3], float maxDist) {
-	float mindist = 1.0e10;
-	int closest = 0;
+int GetClosestPlayers(const float pos[3], float maxDist, int[] clients, int maxClients) {
+	ArrayList collection = new ArrayList(2);
 	maxDist *= maxDist;
 	for (int client=1;client<=MaxClients;client+=1) {
 		if (!IsClientInGame(client) || !IsPlayerAlive(client)) continue;
@@ -777,27 +790,36 @@ int GetClosestPlayer(const float pos[3], float maxDist) {
 		GetClientAbsOrigin(client, clpos);
 		float dist = GetVectorDistance(clpos, pos, true);
 		
-		if ((closest == 0 || dist < mindist) && dist < maxDist) {
-			mindist = dist;
-			closest = client;
-		}
+		if (dist > maxDist) continue;
+		
+		any distIdx[2]; distIdx[0] = dist; distIdx[1] = client;
+		collection.PushArray(distIdx);
 	}
-	return closest;
+	collection.Sort(Sort_Ascending, Sort_Float);
+	int index;
+	for (;index<maxClients && index<collection.Length;index+=1) {
+		clients[index] = collection.Get(index,1);
+	}
+	delete collection;
+	return index;
 }
 Action Timer_PickupThink(Handle timer) {
-	if (!cv_TouchPickup.BoolValue) return Plugin_Continue;
+	if (!cv_TouchPickup.BoolValue || !cv_Enabled.BoolValue) return Plugin_Continue;
 	
 	for (int index = g_EntityAge.Length-1; index >= 0; index -= 1) {
 		int entity = EntRefToEntIndex(g_EntityAge.Get(index,0));
-		if (entity == INVALID_ENT_REFERENCE) { OnEntityDestroyed(entity); continue; }
+		if (entity == INVALID_ENT_REFERENCE) { g_EntityAge.Erase(index); continue; }
 		float age = g_EntityAge.Get(index,1);
 		age = GetGameTime() - age;
 		if (age < 1.0) continue;
 		
 		float origin[3];
 		GetEntPropVector(entity, Prop_Send, "m_vecOrigin", origin);
-		int client = GetClosestPlayer(origin,48.0);
-		if (client && TryPickupWeapon(client, entity)) break;
+		int clients[10];
+		int count = GetClosestPlayers(origin,48.0, clients, sizeof(clients));
+		for (int target; target<count; target+=1) {
+			if (TryPickupWeapon(clients[target], entity)) break;
+		}
 	}
 	
 	return Plugin_Continue;

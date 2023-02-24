@@ -165,6 +165,7 @@ Address GetEconItemView(int weapon, const char[] cclass) {
 	return GetEntityAddress(weapon)+view_as<Address>(offset);
 }
 void SetEconItemView(int weapon, const char[] cclass, Address source) {
+	if (!IsValidEdict(weapon) || source == Address_Null) return;
 	int offset = FindSendPropInfo(cclass, "m_Item");
 	if (offset == -1) ThrowError("Can not find m_Item on %s", cclass);
 	Address destination = GetEntityAddress(weapon)+view_as<Address>(offset);
