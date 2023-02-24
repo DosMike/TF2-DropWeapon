@@ -1,0 +1,15 @@
+name: Plugin Release Archive
+on:
+  release:
+    types: [published]
+jobs:
+  pack-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: SPSauce
+        uses: DosMike/SPSauce-GHAction@1.0
+        with:
+          script: 'git.sauce'
+          github-token: ${{ github.token }}
