@@ -26,6 +26,22 @@
 				"windows" "5792928" // TFInventoryManager[10a596c0] - GetLoadoutTime()[104d3220]
 				"linux" "9126512" // TFInventoryManager[0183bc00] - GetLoadoutTime()[00f87990]
 			}
+			"CTFDroppedWeapon::m_nClip"
+			{/*
+			 * In CTFDroppedWeapon InitDroppedWeapon
+			 * (Called from CTFPlayer::DropAmmoPack before call with "models/items/ammopack_medium.mdl" in nullptr check)
+			 * Check for vtable calles to GetMaxClip1() after GetSkin() in an if-else on IsEnergyWeapon()
+			 * value is assigned to offset m_nClip
+			 * next value in dropped weapon should be m_nAmmo
+			 */
+				"windows"	"1360"
+				"linux"		"1380"
+			}
+			"CTFDroppedWeapon::m_nAmmo"
+			{
+				"windows"	"1364"
+				"linux"		"1384"
+			}
 		}
 		"Signatures"
 		{
