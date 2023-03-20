@@ -12,7 +12,7 @@
 #pragma newdecls required
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "23w08a"
+#define PLUGIN_VERSION "23w12a"
 
 public Plugin myinfo = {
 	name = "[TF2] DropWeapon",
@@ -127,15 +127,25 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 
 
 public Action ConCmd_Drop(int client, int args) {
-	if (!cv_Enabled.BoolValue) return Plugin_Continue;
+	if (!cv_Enabled.BoolValue) {
+		return Plugin_Continue;
+	}
 	
-	if (client == 0 || !IsClientInGame(client)) return Plugin_Handled;
+	if (client == 0 || !IsClientInGame(client)) {
+		return Plugin_Handled;
+	}
+	
+	if (!IsPlayerAlive(client)) {
+		ReplyToCommand(client, "[SM] You need to be alive");
+		return Plugin_Handled;
+	}
 	
 	int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
 	if (weapon == INVALID_ENT_REFERENCE) {
 		EmitSoundToClient(client, "common/wpn_denyselect.wav");
 	} else {
-		SDKHooks_DropWeapon(client, weapon, .bypassHooks=false);
+//		SDKHooks_DropWeapon(client, weapon, .bypassHooks=false);
+		DropWeapon(client, weapon, true, true, NULL_VECTOR, NULL_VECTOR);
 		if (dep_GraviHands) TF2GH_PreventClientAPosing(client);
 	}
 	return Plugin_Handled;
@@ -153,13 +163,20 @@ public Action ConCmd_Pickup(int client, int args) {
 }
 
 public Action ConCmd_Dropitem(int client, const char[] command, int args) {
-	if (!cv_Enabled.BoolValue) return Plugin_Continue;
+	if (!cv_Enabled.BoolValue || !IsPlayerAlive(client)) {
+		return Plugin_Continue;
+	}
 	
 	int carriedItem = GetEntPropEnt(client, Prop_Send, "m_hItem");
-	if (carriedItem != INVALID_ENT_REFERENCE) return Plugin_Continue;
+	if (carriedItem != INVALID_ENT_REFERENCE) {
+		return Plugin_Continue;
+	}
 	
 	int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
-	if (weapon != INVALID_ENT_REFERENCE) SDKHooks_DropWeapon(client, weapon, .bypassHooks=false);
+	if (weapon != INVALID_ENT_REFERENCE) {
+		//SDKHooks_DropWeapon(client, weapon, .bypassHooks=false);
+		DropWeapon(client, weapon, true, true, NULL_VECTOR, NULL_VECTOR);
+	}
 	if (dep_GraviHands) TF2GH_PreventClientAPosing(client);
 	
 	return Plugin_Continue;
@@ -604,7 +621,9 @@ bool DropWeapon(int client, int weapon, bool switchWeapon=true, bool compatCall=
 	//prevent funny floaty arm with invis watch
 	else if (StrEqual(clz, "tf_weapon_invis")) return false;
 	
-	if (!Notify_DropWeapon(client, weapon)) return false;
+	if (!Notify_DropWeapon(client, weapon)) {
+		return false;
+	}
 	
 	float position[3], angles[3];
 	GetClientEyePosition(client, position);
@@ -620,11 +639,11 @@ bool DropWeapon(int client, int weapon, bool switchWeapon=true, bool compatCall=
 		if (slotWeapon == weapon) { slot = sloti; break; }
 		else if (nextWeapon == -1) nextWeapon = slotWeapon;
 	}
-	if (slot < 0) return false; //not on player
+	if (slot < 0) return false;
 	
 	char model[PLATFORM_MAX_PATH];
 	SDKCall(sc_WeaponGetWorldModel, weapon, model, sizeof(model));
-	if (model[0]==0) return false; //we could get the CModel from the string table, but that's probably floating arms if we drop em
+	if (model[0]==0) return false;
 	Address item = GetEconItemView(weapon, "CTFWeaponBase");
 	
 	int entity = SDKCall(sc_DroppedWeaponCreate, client, position, angles, model, item);

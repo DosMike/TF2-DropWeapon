@@ -216,7 +216,7 @@ void SetDroppedWeaponAmmo(int droppedWeapon, int clip, int ammo) {
 
 public MRESReturn Weapon_Drop_EntityCallback(int pThis, DHookParam hParams) {
 	if (!IsClientInGame(pThis) || !IsPlayerAlive(pThis)) {
-		PrintToServer("Weapon_Drop called on invalid player");
+//		PrintToServer("Weapon_Drop called on invalid player");
 		return MRES_Ignored;
 	}
 	int weapon = hParams.Get(1);
