@@ -16,18 +16,18 @@
 				"mac"	"493"
 			}
 			"CTFPlayer::m_flSendPickupWeaponMessageTime"
-			{
-				"windows" "9488"
-				"linux" "9472"
+			{ //look for "PlayerPickupWeapon" in CTFPlayer::TFPlayerThink
+				"windows" "2406"
+				"linux" "9628"
 			}
 			"TFInventoryManager Offset"
 			{ // this is a signleton with a global getter that's to short to sigscan on windows; so these are just an offset to another well known sig.
 				// You can find the getter as second to last call in CTFPlayer::GetLoadoutItem(). These offsets are relative to that function as well, because why not
-				"windows" "5792928" // TFInventoryManager[10a596c0] - GetLoadoutTime()[104d3220]
-				"linux" "9126512" // TFInventoryManager[0183bc00] - GetLoadoutTime()[00f87990]
+				"windows" "5857080" // TFInventoryManager[10a69958] - GetLoadoutTime()[104d3a20]
+				"linux" "9153056" // TFInventoryManager[01847c80] - GetLoadoutTime()[00f8d260]
 			}
 			"CTFDroppedWeapon::m_nClip"
-			{/*
+			{/* 
 			 * In CTFDroppedWeapon InitDroppedWeapon
 			 * (Called from CTFPlayer::DropAmmoPack before call with "models/items/ammopack_medium.mdl" in nullptr check)
 			 * Check for vtable calles to GetMaxClip1() after GetSkin() in an if-else on IsEnergyWeapon()
@@ -56,8 +56,8 @@
 			{	// look for "tf_dropped_weapon"
 				"library" "server"
 				"linux" "@_ZN16CTFDroppedWeapon6CreateEP9CTFPlayerRK6VectorRK6QAnglePKcPK13CEconItemView"
-				"windows" "\x55\x8B\xEC\x51\xA1****\x80\xB8\x7A\x09\x00\x00\x00\x74*"
-				//LKASM 55 8B EC 51 A1 74 F4 A0 10 80 B8 7A 09 00 00 00 74 06
+				"windows" "\x55\x8B\xEC\x51\xA1****\x80\xB8****\x00\x74\x06"
+				//LKASM 55 8B EC 51 A1 C4 2E A1 10 80 B8 72 0C 00 00 00 74 06
 			}
 			"CTFDroppedWeapon::InitDroppedWeapon()"
 			{	// called after Create()
@@ -98,7 +98,7 @@
 			{ //unique string "#Item_BlacklistedInMatch"
 				"library" "server"
 				"linux" "@_ZN19CTFInventoryManager19GetBaseItemForClassEii"
-				"windows" "\x55\x8B\xEC\x83\xEC\x1C\x53\x8B\xD9\x89\x5D\xF8\xE8"
+				"windows" "\x55\x8B\xEC\x83\xEC\x1C\x53\x8B\xD9****"
 				//LKASM 55 8B EC 83 EC 1C 53 8B D9 89 5D F8 E8 EF DA FE FF
 			}
 		}
