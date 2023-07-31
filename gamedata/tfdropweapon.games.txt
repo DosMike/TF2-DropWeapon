@@ -17,7 +17,7 @@
 			}
 			"CTFPlayer::m_flSendPickupWeaponMessageTime"
 			{ //look for "PlayerPickupWeapon" in CTFPlayer::TFPlayerThink
-				"windows" "2406"
+				"windows" "9624"
 				"linux" "9628"
 			}
 			"TFInventoryManager Offset"
