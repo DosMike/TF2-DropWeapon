@@ -41,7 +41,6 @@ public Action TF2DW_OnClientDropWeapon(int client, int weapon) {
     int itemdef = GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex");
     TFClassType pclass = TF2_GetPlayerClass(client);
     int slot = LoadoutSlotToIndex(TF2Econ_GetItemLoadoutSlot(itemdef, pclass));
-    PrintToServer("%N dropping %i (ent %i, slot %i)", client, itemdef, weapon, slot);
     if (slot < 0 || slot >= WPN_SLOT_CNT) return Plugin_Continue;
     bool allowed = checkPermSlot(permission_buffer_drop, client, slot) && checkPermItem(permission_itemdef_drop, client, itemdef);
     if (!allowed) {
@@ -121,16 +120,13 @@ static void setPermissionItem(ArrayList permList, int team, int itemdef, const c
     int offset = permOffsetItem(team);
 
     int at = BSearchList(permList, itemdef);
-    PrintToServer("BsearchList for %i returned %i", itemdef, at);
     if (at >= 0) {
         permList.GetArray(at, entry);
         strcopy(entry.permission[offset], 50, permString);
-        PrintToServer("> red %s blu %s spec %s boss %s", entry.permission[0], entry.permission[50], entry.permission[100], entry.permission[150]);
         permList.SetArray(at, entry);
     } else {
         entry.itemdef = itemdef;
         strcopy(entry.permission[offset], 50, permString);
-        PrintToServer("> red %s blu %s spec %s boss %s", entry.permission[0], entry.permission[50], entry.permission[100], entry.permission[150]);
         permList.PushArray(entry);
         permList.Sort(Sort_Ascending, Sort_Integer);
     }
@@ -138,10 +134,8 @@ static void setPermissionItem(ArrayList permList, int team, int itemdef, const c
 static bool checkPermItem(ArrayList permList, int client, int itemdef) {
     ItemDropPerm entry;
     int at = BSearchList(permList, itemdef);
-    PrintToServer("BsearchList for %i returned %i", itemdef, at);
     if (at == -1) return true;
     permList.GetArray(at, entry);
-    PrintToServer("> red %s blu %s spec %s boss %s", entry.permission[0], entry.permission[50], entry.permission[100], entry.permission[150]);
     int offset = permOffsetItem(GetClientTeam(client));
     return checkPermRaw(entry.permission[offset], client);
 }
