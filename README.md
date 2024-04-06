@@ -60,3 +60,8 @@ The commands were used for testing, but feel free to enable them for your player
 
 * Nosoops [TF Econ Data](https://github.com/nosoop/SM-TFEconData) and [TF2Utils](https://github.com/nosoop/SM-TFUtils/) as well as [TF2PlayerClassData](https://github.com/DosMike/TF2-PlayerClassDataHook).
 * Optionally use [TF2 Gravity Hands](https://github.com/DosMike/TF2-GraviHands) to prevent weapon-less players from A-posing.
+
+## Module Plugins
+
+### [TF2 DropWeapon SimpleConfig](module_config.md)
+Simple configuration on what weapon / weapon slots can be dropped and picked up per team

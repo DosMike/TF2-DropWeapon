@@ -7,12 +7,15 @@
 
 #undef REQUIRE_PLUGIN
 #include <tf2gravihands>
+#if !defined _tf2_gravihands
+#warning "Compiling without GravityHands"
+#endif
 #define REQUIRE_PLUGIN
 
 #pragma newdecls required
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "23w12a"
+#define PLUGIN_VERSION "24w14a"
 
 public Plugin myinfo = {
 	name = "[TF2] DropWeapon",
@@ -553,11 +556,13 @@ int GiveWeaponFromItemView(int client, const char[] weaponclass="", Address econ
 		dItemId = GetDefaultItemDef(classname, clClass);
 		if (dItemId < 0) return INVALID_ENT_REFERENCE; //no applicable to current class;
 	}
+	
 	int loSlot = TF2Econ_GetItemLoadoutSlot(dItemId, clClass);
 	if ( loSlot == -1 ) return INVALID_ENT_REFERENCE;
 	//get active weapon in loadout slot
 	int wSlot;
 	int aWeapon = FindWeaponForLoadoutSlot(client, loSlot, wSlot);
+	
 	//patch run pickup: no space in inventory -> stop
 	if (dontReplace && aWeapon != INVALID_ENT_REFERENCE) {
 		return INVALID_ENT_REFERENCE; //don't drop as requested
@@ -736,7 +741,7 @@ bool TryPickUpCursorEnt(int client) {
 		return false;
 	}
 	
-	if (PickupWeaponFromOther(client, entity, cv_IgnorePickupRestrictions.BoolValue) != INVALID_ENT_REFERENCE) {
+	if (PickupWeaponFromOther(client, entity, cv_IgnorePickupRestrictions.BoolValue, false) != INVALID_ENT_REFERENCE) {
 		EmitSoundToAll("items/gunpickup2.wav", client);
 	} else {
 		EmitSoundToClient(client, "common/wpn_denyselect.wav");
@@ -748,10 +753,11 @@ bool TryPickUpCursorEnt(int client) {
  * Will delete dropped entity on success as expected.
  * @param client target to get the weapon
  * @param droppedWeapon the weapon to pick up
- * @param force if true, uses a custom implementation (see PickupWeaponFromOtherRe)
+ * @param force if true, uses a custom, less restrictive implementation (see PickupWeaponFromOtherRe)
+ * @param dontReplace if true, will modify the pickup behaviour to not replace, implies force
  * @return the new weapon entity on success
  */
-int PickupWeaponFromOther(int client, int droppedWeapon, bool force) {
+int PickupWeaponFromOther(int client, int droppedWeapon, bool force, bool dontReplace) {
 	if (!IsPlayerAlive(client) || !IsValidEdict(droppedWeapon)) return INVALID_ENT_REFERENCE;
 	char clz[20];
 	GetEntityClassname(droppedWeapon, clz, sizeof(clz));
@@ -759,7 +765,7 @@ int PickupWeaponFromOther(int client, int droppedWeapon, bool force) {
 	
 	if (!Notify_PickupWeapon(client, droppedWeapon)) return INVALID_ENT_REFERENCE;
 	
-	int newWeapon = (force ? PickupWeaponFromOtherRe(client, droppedWeapon) : SDKCall(sc_PickupOtherWeapon, client, droppedWeapon));
+	int newWeapon = (force||dontReplace ? PickupWeaponFromOtherRe(client, droppedWeapon, dontReplace) : SDKCall(sc_PickupOtherWeapon, client, droppedWeapon));
 	if (newWeapon != INVALID_ENT_REFERENCE) {
 		RemoveEdict(droppedWeapon);
 		Notify_PickupWeaponPost(client, droppedWeapon);
@@ -772,10 +778,10 @@ int PickupWeaponFromOther(int client, int droppedWeapon, bool force) {
  * Ignores certain limitations the game normally has, like:
  * - the same slot has to have a weapon to drop
  * - player class check
- * @param act like "run over pickup", requiring an empty loadout slot to load into. opposite of default game behaviour!
+ * @param dontReplace act like "run over pickup", requiring an empty loadout slot to load into. opposite of default game behaviour!
  * @return picked up weapon on success, INVALID_ENT_REFERENCE otherwise
  */
-int PickupWeaponFromOtherRe(int client, int droppedWeapon, bool runPickup=false) {
+int PickupWeaponFromOtherRe(int client, int droppedWeapon, bool dontReplace=false) {
 	if (!IsPlayerAlive(client) || !IsValidEdict(droppedWeapon)) return INVALID_ENT_REFERENCE;
 	char classname[64];
 	GetEntityClassname(droppedWeapon, classname, sizeof(classname));
@@ -790,7 +796,7 @@ int PickupWeaponFromOtherRe(int client, int droppedWeapon, bool runPickup=false)
 	}
 	
 	Address pItem = GetEconItemView(droppedWeapon, "CTFDroppedWeapon");
-	int nWeapon = GiveWeaponFromItemView(client, .econItem=pItem, .dontReplace=runPickup);
+	int nWeapon = GiveWeaponFromItemView(client, .econItem=pItem, .dontReplace=dontReplace);
 	if (nWeapon != INVALID_ENT_REFERENCE) {
 		//init picked up weapon from dropped weapon
 		SDKCall(sc_PickedUpWeaponInit, droppedWeapon, client, nWeapon);
@@ -863,9 +869,8 @@ bool TryPickupWeapon(int client, int weapon) {
 	bool softPickup = !( slot == 2/*melee*/ && dep_GraviHands && TF2GH_IsClientUnarmed(client) );
 	
 	if (softPickup && slotWeapon != INVALID_ENT_REFERENCE) return false;
-	bool picked = PickupWeaponFromOtherRe(client, weapon, softPickup) != INVALID_ENT_REFERENCE;
+	bool picked = PickupWeaponFromOther(client, weapon, false, softPickup) != INVALID_ENT_REFERENCE;
 	if (picked) {
-		RemoveEntity(weapon);
 		EmitSoundToAll("items/gunpickup2.wav", client);
 	}
 	return picked;

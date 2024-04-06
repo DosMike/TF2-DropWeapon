@@ -175,16 +175,16 @@ static void InitDefaultDefIndexByClassname() {
 // ----- Stock Loadout -----
 
 static int g_StockItemDefs[10][6] = {
-	{-1, -1, -1, -1, -1}, //unknown
-	{13, 23,  0, -1, -1}, //scout=1
-	{14, 16,  3, -1, -1}, //sniper
-	{18, 10,  6, -1, -1}, //soldier
-	{19, 20,  1, -1, -1}, //demo
-	{17, 29,  8, -1, -1}, //medic
-	{15, 11,  5, -1, -1}, //heavy
-	{21, 12,  2, -1, -1}, //pyro
-	{24, 735, 4, 27, 30}, //spy
-	{ 9, 22,  7, 25, 26}, //engineer
+	{-1, -1, -1, -1, -1, -1}, //unknown
+	{13, 23,  0, -1, -1, -1}, //scout=1
+	{14, 16,  3, -1, -1, -1}, //sniper
+	{18, 10,  6, -1, -1, -1}, //soldier
+	{19, 20,  1, -1, -1, -1}, //demo
+	{17, 29,  8, -1, -1, -1}, //medic
+	{15, 11,  5, -1, -1, -1}, //heavy
+	{21, 12,  2, -1, -1, -1}, //pyro
+	{24, 735, 4, 27, 30, -1}, //spy
+	{ 9, 22,  7, 25, 26, -1}, //engineer
 };
 
 int GetStockWeaponItemDef(TFClassType class, int slot) {
