@@ -5,7 +5,7 @@
 #pragma newdecls required
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "24w24a"
+#define PLUGIN_VERSION "24w24b"
 
 public Plugin myinfo = {
 	name = "[TF2] DropWeapon SimpleConfig",
@@ -109,7 +109,6 @@ static bool checkPermRaw(const char[] perm, int client) {
 }
 
 static void setPermissionSlot(char[] permBuffer, int team, int weaponSlot, const char[] permString) {
-    PrintToServer("Set permission for slot %i on team %i to %s", weaponSlot, team, permString);
     strcopy(permBuffer[permOffsetSlot(team, weaponSlot)], 50, permString);
 }
 static bool checkPermSlot(char[] permBuffer, int client, int weaponSlot) {
