@@ -5,7 +5,7 @@
 #pragma newdecls required
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "24w14a"
+#define PLUGIN_VERSION "24w24a"
 
 public Plugin myinfo = {
 	name = "[TF2] DropWeapon SimpleConfig",
@@ -68,11 +68,11 @@ static int permOffsetSlot(int team, int slot) {
     case 2:
         offset = 000;
     case 3:
-        offset = 350;
+        offset = 490;
     case 5:
-        offset = 700;
+        offset = 800;
     default:
-        offset = 1050;
+        offset = 1200;
     }
     if (slot < 0 || slot >= WPN_SLOT_CNT) return offset;
     return offset + slot * 50;
@@ -109,6 +109,7 @@ static bool checkPermRaw(const char[] perm, int client) {
 }
 
 static void setPermissionSlot(char[] permBuffer, int team, int weaponSlot, const char[] permString) {
+    PrintToServer("Set permission for slot %i on team %i to %s", weaponSlot, team, permString);
     strcopy(permBuffer[permOffsetSlot(team, weaponSlot)], 50, permString);
 }
 static bool checkPermSlot(char[] permBuffer, int client, int weaponSlot) {
@@ -149,26 +150,22 @@ enum LoadEntryKind {
 
 void loadSlotPerms(char[] permBuffer, KeyValues kvs, int slot) {
     char buffer[64];
-    TF2Econ_TranslateLoadoutSlotIndexToName(slot, buffer, sizeof(buffer));
-    if (kvs.GetDataType(buffer) == KvData_String) {
-        kvs.GetString(buffer, buffer, sizeof(buffer));
+    KvDataTypes type = kvs.GetDataType(NULL_STRING);
+    if (type == KvData_String) {
+        kvs.GetString(NULL_STRING, buffer, sizeof(buffer));
         setPermissionSlot(permBuffer, 1, slot, buffer);
         setPermissionSlot(permBuffer, 2, slot, buffer);
         setPermissionSlot(permBuffer, 3, slot, buffer);
         setPermissionSlot(permBuffer, 5, slot, buffer);
-    } else if (kvs.GetDataType(buffer) == KvData_None) {
-        if (kvs.JumpToKey(buffer))
-        {
-            kvs.GetString("red", buffer, sizeof(buffer), "");
-            setPermissionSlot(permBuffer, 2, slot, buffer);
-            kvs.GetString("blue", buffer, sizeof(buffer), "");
-            setPermissionSlot(permBuffer, 3, slot, buffer);
-            kvs.GetString("spec", buffer, sizeof(buffer), "");
-            setPermissionSlot(permBuffer, 1, slot, buffer);
-            kvs.GetString("boss", buffer, sizeof(buffer), "");
-            setPermissionSlot(permBuffer, 5, slot, buffer);
-            kvs.GoBack();
-        }
+    } else if (type == KvData_None) {
+        kvs.GetString("red", buffer, sizeof(buffer), "");
+        setPermissionSlot(permBuffer, 2, slot, buffer);
+        kvs.GetString("blue", buffer, sizeof(buffer), "");
+        setPermissionSlot(permBuffer, 3, slot, buffer);
+        kvs.GetString("spec", buffer, sizeof(buffer), "");
+        setPermissionSlot(permBuffer, 1, slot, buffer);
+        kvs.GetString("boss", buffer, sizeof(buffer), "");
+        setPermissionSlot(permBuffer, 5, slot, buffer);
     } else {
         SetFailState("Broken configuration, expected perm string or group with teams");
     }
@@ -176,25 +173,22 @@ void loadSlotPerms(char[] permBuffer, KeyValues kvs, int slot) {
 
 void loadItemPerms(ArrayList permList, KeyValues kvs, int itemdef) {
     char buffer[64];
-    if (kvs.GetDataType(buffer) == KvData_String) {
-        kvs.GetString(buffer, buffer, sizeof(buffer));
+    KvDataTypes type = kvs.GetDataType(NULL_STRING);
+    if (type == KvData_String) {
+        kvs.GetString(NULL_STRING, buffer, sizeof(buffer));
         setPermissionItem(permList, 1, itemdef, buffer);
         setPermissionItem(permList, 2, itemdef, buffer);
         setPermissionItem(permList, 3, itemdef, buffer);
         setPermissionItem(permList, 5, itemdef, buffer);
-    } else if (kvs.GetDataType(buffer) == KvData_None) {
-        if (kvs.JumpToKey(buffer))
-        {
-            kvs.GetString("red", buffer, sizeof(buffer), "");
-            setPermissionItem(permList, 2, itemdef, buffer);
-            kvs.GetString("blue", buffer, sizeof(buffer), "");
-            setPermissionItem(permList, 3, itemdef, buffer);
-            kvs.GetString("spec", buffer, sizeof(buffer), "");
-            setPermissionItem(permList, 1, itemdef, buffer);
-            kvs.GetString("boss", buffer, sizeof(buffer), "");
-            setPermissionItem(permList, 5, itemdef, buffer);
-            kvs.GoBack();
-        }
+    } else if (type == KvData_None) {
+        kvs.GetString("red", buffer, sizeof(buffer), "");
+        setPermissionItem(permList, 2, itemdef, buffer);
+        kvs.GetString("blue", buffer, sizeof(buffer), "");
+        setPermissionItem(permList, 3, itemdef, buffer);
+        kvs.GetString("spec", buffer, sizeof(buffer), "");
+        setPermissionItem(permList, 1, itemdef, buffer);
+        kvs.GetString("boss", buffer, sizeof(buffer), "");
+        setPermissionItem(permList, 5, itemdef, buffer);
     } else {
         SetFailState("Broken configuration, expected perm string or group with teams");
     }
@@ -230,7 +224,7 @@ void loadPermEntries(KeyValues kvs, LoadEntryKind kind) {
 }
 
 void LoadPermissionsFromFile() {
-    if (permission_itemdef_drop == null) 
+    if (permission_itemdef_drop == null)
         permission_itemdef_drop = new ArrayList(sizeof(ItemDropPerm));
     else
         permission_itemdef_drop.Clear();

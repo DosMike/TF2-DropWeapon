@@ -185,10 +185,7 @@ public Action ConCmd_Dropitem(int client, const char[] command, int args) {
 	return Plugin_Continue;
 }
 
-char[] GetFormatTF2ClassType(TFClassType class) {
-	static char classnames[10][10] = {"unknown","scout","sniper","soldier","demoman","medic","heavy","pyro","spy","engineer"};
-	return classnames[view_as<int>(class)];
-}
+static char tf2classnames[10][10] = {"unknown","scout","sniper","soldier","demoman","medic","heavy","pyro","spy","engineer"};
 
 /** Similar to FindTarget, but wont auto-reply. returns process target errors (<=0) or client index (>0) */
 public int FindSingleTargetSilent(int client, const char[] pattern, int commandFilterFlags) {
@@ -289,16 +286,16 @@ public Action ConCmd_GiveGun(int client, int args) {
 			}
 			if (weapon != INVALID_ENT_REFERENCE) {
 				GivePlayerAmmo(targets[i], 9999, GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType"));
-				PrintToChat(targets[i], "[SM] %N gave you %s weapon for %s slot %i", client, use_stock?"the stock":"your", GetFormatTF2ClassType(class), slot);
+				PrintToChat(targets[i], "[SM] %N gave you %s weapon for %s slot %i", client, use_stock?"the stock":"your", tf2classnames[class], slot);
 				given++;
 			}
 		}
 		if (given) {
-			if (tnisml) ReplyToCommand(client, "[SM] You gave %t their %s weapon for %s slot %i (%i/%i matched players)", tname, use_stock?"stock":"loadout", GetFormatTF2ClassType(class), slot, given, tcount);
-			else ReplyToCommand(client, "[SM] You gave %s their %s weapon for %s slot %i (%i/%i matched players)", tname, use_stock?"stock":"loadout", GetFormatTF2ClassType(class), slot, given, tcount);
+			if (tnisml) ReplyToCommand(client, "[SM] You gave %t their %s weapon for %s slot %i (%i/%i matched players)", tname, use_stock?"stock":"loadout", tf2classnames[class], slot, given, tcount);
+			else ReplyToCommand(client, "[SM] You gave %s their %s weapon for %s slot %i (%i/%i matched players)", tname, use_stock?"stock":"loadout", tf2classnames[class], slot, given, tcount);
 		} else {
-			if (tnisml) ReplyToCommand(client, "[SM] %t can not use the %s %s weapon in slot %i", tname, GetFormatTF2ClassType(class), use_stock?"stock":"loadout", slot);
-			else ReplyToCommand(client, "[SM] %s can not use the %s %s weapon in slot %i", tname, GetFormatTF2ClassType(class), use_stock?"stock":"loadout", slot);
+			if (tnisml) ReplyToCommand(client, "[SM] %t can not use the %s %s weapon in slot %i", tname, tf2classnames[class], use_stock?"stock":"loadout", slot);
+			else ReplyToCommand(client, "[SM] %s can not use the %s %s weapon in slot %i", tname, tf2classnames[class], use_stock?"stock":"loadout", slot);
 		}
 		return Plugin_Handled;
 	}

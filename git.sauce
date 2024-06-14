@@ -11,8 +11,8 @@ mkdir plugins
 
 set %{PLUGIN_VERSION} as \1 from scripting/tf2dropweapon.sp ^#define\s+PLUGIN_VERSION\s+"([^"]+)"
 
-spcomp -O2  -i scripting -o plugins/tf2dropweapon.smx scripting/tf2dropweapon.sp
-spcomp -O2 -i scripting -o plugins/tf2dropweapon_config.xms scripting/tf2dropweapon_config.sp
+spcomp -O2 -i scripting -i scripting/include -o plugins/tf2dropweapon.smx scripting/tf2dropweapon.sp
+spcomp -O2 -i scripting -i scripting/include -o plugins/tf2dropweapon_config.xms scripting/tf2dropweapon_config.sp
 
 with files
  plugins
@@ -20,6 +20,6 @@ with files
  scripting
 :release zip TF2DropWeapon-%{PLUGIN_VERSION}.zip
 
-with files
- TF2DropWeapon-%{PLUGIN_VERSION}.zip
-:release github ${GITHUB_REPOSITORY} ${GITHUB_REF_NAME}
+#with files
+# TF2DropWeapon-%{PLUGIN_VERSION}.zip
+#:release github ${GITHUB_REPOSITORY} ${GITHUB_REF_NAME}
