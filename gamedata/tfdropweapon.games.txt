@@ -6,31 +6,31 @@
 		{
 			"CTFWeaponBase::GetWorldModel()"
 			{
-				"linux" "328"
-				"windows" "322"
+				"linux" "329"
+				"windows" "323"
 			}
 			"CTFPlayer::GiveNamedItem()"
 			{ //same as TF2Items, but i want to call it manually
-				"windows"	"486"
-				"linux"	"493"
-				"mac"	"493"
+				"windows"	"487"
+				"linux"	"494"
+				"mac"	"494"
 			}
 			"CTFPlayer::m_flSendPickupWeaponMessageTime"
 			{ //look for "PlayerPickupWeapon" in CTFPlayer::TFPlayerThink
-				"windows" "9624"
-				"linux" "9628"
+				"windows" "9636"
+				"linux" "9640"
 			}
 			"TFInventoryManager Offset"
 			{ // this is a signleton with a global getter that's to short to sigscan on windows; so these are just an offset to another well known sig.
 				// You can find the getter as second to last call in CTFPlayer::GetLoadoutItem(). These offsets are relative to that function as well, because why not
-				"windows" "5857080" // TFInventoryManager[10a69958] - GetLoadoutTime()[104d3a20]
-				"linux" "9153056" // TFInventoryManager[01847c80] - GetLoadoutTime()[00f8d260]
+				"windows" "5857080" // TFInventoryManager[10a69958] - GetLoadoutItem()[104d3a20]
+				"linux" "11975632" // TFInventoryManager[01862880] - GetLoadoutItem()[00cf6cb0]
 			}
 			"CTFDroppedWeapon::m_nClip"
 			{/* 
 			 * In CTFDroppedWeapon InitDroppedWeapon
 			 * (Called from CTFPlayer::DropAmmoPack before call with "models/items/ammopack_medium.mdl" in nullptr check)
-			 * Check for vtable calles to GetMaxClip1() after GetSkin() in an if-else on IsEnergyWeapon()
+			 * Check for vtable calls to GetMaxClip1() after GetSkin() in an if-else on IsEnergyWeapon()
 			 * value is assigned to offset m_nClip
 			 * next value in dropped weapon should be m_nAmmo
 			 */
@@ -67,7 +67,7 @@
 				//LKASM 55 8B EC 83 EC 24 56 57 8B F9 8B 4D 08 85 C9
 			}
 			"CTFPlayer::PickupWeaponFromOther()"
-			{ //good base 
+			{ //good base
 				"library" "server"
 				"linux" "@_ZN9CTFPlayer21PickupWeaponFromOtherEP16CTFDroppedWeapon"
 				"windows" "\x55\x8B\xEC\x83\xEC\x24\x56\x8B\x75\x08\x57\x8B\xF9\x81\xC6\xB0\x04\x00\x00"

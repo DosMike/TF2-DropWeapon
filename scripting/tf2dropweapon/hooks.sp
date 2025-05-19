@@ -65,7 +65,8 @@ void InitHookData() {
 	
 	StartPrepSDKCall(SDKCall_Player);
 	PrepSDKCall_SetFromConf(data, SDKConf_Signature, "CTFPlayer::PickupWeaponFromOther()");
-	PrepSDKCall_SetReturnInfo(SDKType_CBaseEntity, SDKPass_Pointer);
+	PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
+	PrepSDKCall_SetReturnInfo(SDKType_Bool, SDKPass_Plain);
 	if ((sc_PickupOtherWeapon = EndPrepSDKCall()) == INVALID_HANDLE)
 		SetFailState("Could not hook CTFPlayer::PickupWeaponFromOther()");
 	

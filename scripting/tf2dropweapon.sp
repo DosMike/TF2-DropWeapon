@@ -581,7 +581,6 @@ int GiveWeaponFromItemView(int client, const char[] weaponclass="", Address econ
 	if ( nWeapon == INVALID_ENT_REFERENCE ) return INVALID_ENT_REFERENCE;
 	//if has active weapon
 	if ( aWeapon != INVALID_ENT_REFERENCE ) {
-		
 		//if player in respawn room and active weapon is own weapon
 		float vec[3];
 		GetClientAbsOrigin(client, vec);
@@ -750,11 +749,11 @@ bool TryPickUpCursorEnt(int client) {
  * Will delete dropped entity on success as expected.
  * @param client target to get the weapon
  * @param droppedWeapon the weapon to pick up
- * @param force if true, uses a custom, less restrictive implementation (see PickupWeaponFromOtherRe)
- * @param dontReplace if true, will modify the pickup behaviour to not replace, implies force
+ * @param relaxedRules if true, uses a custom, less restrictive implementation (see PickupWeaponFromOtherRe)
+ * @param dontReplace if true, will modify the pickup behaviour to not replace, implies relaxedRules
  * @return the new weapon entity on success
  */
-int PickupWeaponFromOther(int client, int droppedWeapon, bool force, bool dontReplace) {
+int PickupWeaponFromOther(int client, int droppedWeapon, bool relaxedRules, bool dontReplace) {
 	if (!IsPlayerAlive(client) || !IsValidEdict(droppedWeapon)) return INVALID_ENT_REFERENCE;
 	char clz[20];
 	GetEntityClassname(droppedWeapon, clz, sizeof(clz));
@@ -762,7 +761,14 @@ int PickupWeaponFromOther(int client, int droppedWeapon, bool force, bool dontRe
 	
 	if (!Notify_PickupWeapon(client, droppedWeapon)) return INVALID_ENT_REFERENCE;
 	
-	int newWeapon = (force||dontReplace ? PickupWeaponFromOtherRe(client, droppedWeapon, dontReplace) : SDKCall(sc_PickupOtherWeapon, client, droppedWeapon));
+	int newWeapon = INVALID_ENT_REFERENCE;
+	if (relaxedRules||dontReplace) {
+		newWeapon = PickupWeaponFromOtherRe(client, droppedWeapon, dontReplace);
+	} else {
+		// PrintToServer("[TF2DW] Weapon before SDK Call to CTFPlayer::PickupWeaponFromOther: %d", droppedWeapon);
+		bool success = SDKCall(sc_PickupOtherWeapon, client, droppedWeapon) != 0;
+		if (success) newWeapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
+	}
 	if (newWeapon != INVALID_ENT_REFERENCE) {
 		RemoveEdict(droppedWeapon);
 		Notify_PickupWeaponPost(client, droppedWeapon);
